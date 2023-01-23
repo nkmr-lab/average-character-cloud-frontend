@@ -1,0 +1,41 @@
+version: "3"
+
+services:
+  postgres:
+    image: "postgres:10.5"
+    environment:
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres:/var/lib/postgresql/data
+  average-character-cloud-backend:
+    image: ghcr.io/nkmr-lab/average-character-cloud-backend:20230122152958501-7f3a6df
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+      - AVCC_DATABASE_URL=postgres://postgres:postgres@postgres:5432/postgres
+      - AVCC_ORIGIN=http://localhost:3000
+      - AVCC_MOUNT_BASE=backend/
+      - AVCC_AUTH=disable
+      - AVCC_SESSION=dummy
+      - AVCC_SESSION_USER_ID=dummy_user
+      - AVCC_LOGOUT_REDIRECT_URL=/
+      - AVCC_FAKTORY_URL=tcp://faktory:7419
+      - AVCC_ENQUEUE_CRON_TASK=false
+      - AVCC_ENABLE_TASK_FRONT=true
+    depends_on:
+      - postgres
+      - redis
+      - faktory
+  redis:
+    image: "redis:7.0.3"
+    volumes:
+      - redis:/data
+  faktory:
+    image: contribsys/faktory:1.6.2
+    volumes:
+      - faktory:/var/lib/faktory/db
+volumes:
+  postgres:
+  redis:
+  faktory:

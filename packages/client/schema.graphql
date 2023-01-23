@@ -1,0 +1,168 @@
+type FigureRecord implements Node {
+  id: ID!
+  figureRecordId: Ulid!
+  character: Character!
+  figure: Figure!
+  createdAt: DateTimeUtc!
+}
+
+enum UserType {
+  MYSELF
+  OTHER
+}
+
+type Mutation {
+  createFigureRecord(input: CreateFigureRecordInput!): CreateFigureRecordPayload!
+  createCharacterConfig(input: CreateCharacterConfigInput!): CreateCharacterConfigPayload!
+  updateCharacterConfig(input: UpdateCharacterConfigInput!): UpdateCharacterConfigPayload!
+  updateFigureRecord(input: UpdateFigureRecordInput!): UpdateFigureRecordPayload!
+  updateUserConfig(input: UpdateUserConfigInput!): UpdateUserConfigPayload!
+}
+
+"""DateTime"""
+scalar DateTimeUtc
+
+type CharacterConfigSeedConnection {
+  pageInfo: PageInfo!
+  edges: [CharacterConfigSeedEdge!]!
+}
+
+type UpdateCharacterConfigPayload {
+  characterConfig: CharacterConfig
+  errors: [Error!]
+}
+
+type CharacterConfig implements Node {
+  id: ID!
+  character: Character!
+  strokeCount: Int!
+  createdAt: DateTimeUtc!
+  updatedAt: DateTimeUtc!
+}
+
+type Query {
+  query: Query!
+  loginUser: LoginUser
+  userConfig: UserConfig!
+  node(id: ID!): Node
+  characters(values: [CharacterValue!]!): [Character!]!
+  characterConfigs(first: Int, after: String, last: Int, before: String): CharacterConfigConnection!
+  characterConfigSeeds(first: Int, after: String, last: Int, before: String, includeExistCharacterConfig: Boolean!): CharacterConfigSeedConnection!
+}
+
+type FigureRecordEdge {
+  cursor: String!
+  node: FigureRecord!
+}
+
+type CharacterConfigSeed implements Node {
+  id: ID!
+  character: Character!
+  strokeCount: Int!
+  updatedAt: DateTimeUtc!
+}
+
+type CharacterConfigEdge {
+  cursor: String!
+  node: CharacterConfig!
+}
+
+scalar CharacterValue
+
+type CreateCharacterConfigPayload {
+  characterConfig: CharacterConfig
+  errors: [Error!]
+}
+
+input UpdateFigureRecordInput {
+  id: Ulid!
+  disabled: Boolean
+}
+
+type FigureRecordConnection {
+  pageInfo: PageInfo!
+  edges: [FigureRecordEdge!]!
+}
+
+type Character implements Node {
+  id: ID!
+  value: CharacterValue!
+  characterConfig: CharacterConfig
+  characterConfigSeed: CharacterConfigSeed
+  figureRecords(ids: [Ulid!], first: Int, after: String, last: Int, before: String, userType: UserType): FigureRecordConnection!
+}
+
+type CharacterConfigConnection {
+  pageInfo: PageInfo!
+  edges: [CharacterConfigEdge!]!
+}
+
+type UpdateUserConfigPayload {
+  userConfig: UserConfig
+  errors: [Error!]
+}
+
+scalar Figure
+
+type Error {
+  message: String!
+}
+
+type UpdateFigureRecordPayload {
+  figureRecord: FigureRecord
+  errors: [Error!]
+}
+
+input UpdateCharacterConfigInput {
+  character: CharacterValue!
+  strokeCount: Int
+}
+
+input CreateFigureRecordInput {
+  character: CharacterValue!
+  figure: Figure!
+}
+
+scalar Ulid
+
+type CreateFigureRecordPayload {
+  figureRecord: FigureRecord
+  errors: [Error!]
+}
+
+interface Node {
+  id: ID!
+}
+
+type CharacterConfigSeedEdge {
+  cursor: String!
+  node: CharacterConfigSeed!
+}
+
+type UserConfig implements Node {
+  id: ID!
+  allowSharingCharacterConfigs: Boolean!
+  allowSharingFigureRecords: Boolean!
+  updatedAt: DateTimeUtc
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  startCursor: String
+  endCursor: String
+}
+
+input UpdateUserConfigInput {
+  allowSharingCharacterConfigs: Boolean
+  allowSharingFigureRecords: Boolean
+}
+
+type LoginUser {
+  userId: String!
+}
+
+input CreateCharacterConfigInput {
+  character: CharacterValue!
+  strokeCount: Int!
+}

@@ -1,0 +1,29 @@
+{
+  "name": "@average-character-cloud-frontend/root",
+  "private": true,
+  "devDependencies": {
+    "@lerna-lite/run": "^1.11.2",
+    "@typescript-eslint/eslint-plugin": "^5.36.1",
+    "@typescript-eslint/parser": "^5.36.1",
+    "eslint": "^8.23.0",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-import": "^2.26.0",
+    "prettier": "^2.7.1",
+    "typescript": "^4.8.2",
+    "@lerna-lite/cli": "^1.11.2"
+  },
+  "scripts": {
+    "lint": "eslint 'packages/*/src/**/*.{ts,tsx}'",
+    "lint:fix": "eslint --fix 'packages/*/src/**/*.{ts,tsx}'",
+    "format:check": "prettier --check 'packages/*/src/**/*.{ts,tsx}'",
+    "format": "prettier --write 'packages/*/src/**/*.{ts,tsx}'",
+    "dev": "lerna run --include-dependencies --parallel --stream --scope @average-character-cloud-frontend/client dev",
+    "dev-bff": "lerna run --include-dependencies build --scope @average-character-cloud-frontend/client && lerna run --include-dependencies --parallel --stream --scope @average-character-cloud-frontend/bff dev"
+  },
+  "workspaces": [
+    "packages/app-env",
+    "packages/client",
+    "packages/bff"
+  ],
+  "dependencies": {}
+}
