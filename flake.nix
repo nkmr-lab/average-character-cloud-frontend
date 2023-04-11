@@ -13,6 +13,7 @@
           devShell = mkShell {
             packages = [
               nodejs-16_x
+              watchman
             ];
           };
         }
