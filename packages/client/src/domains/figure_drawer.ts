@@ -49,7 +49,7 @@ function pointToPath(
   }" />`;
 }
 
-type FigureJSON = {
+export type FigureJSON = {
   strokes: {
     points: { x: number; y: number; z: number }[];
   }[];

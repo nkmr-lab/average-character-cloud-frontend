@@ -13,7 +13,6 @@ import { CreateFigureRecord_createFigureRecordMutation } from "./__generated__/C
 import Button from "@mui/material/Button";
 import { formatError } from "../domains/error";
 import { useSnackbar } from "notistack";
-import CanvasIframeClient from "../domains/CanvasIframeClient";
 import { useBackground } from "../hooks/useBackground";
 import {
   Alert,
@@ -26,6 +25,7 @@ import useCreateCharacterConfig from "../hooks/useCreateCharacterConfig";
 import * as utf8 from "../utils/utf8";
 import ignoreResult from "../utils/ignoreResult";
 import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
+import CanvasIframe, { CanvasIframeClient } from "../components/CanvasIframe";
 
 export default function CreateFigureRecord(): JSX.Element {
   const params = useParams();
@@ -75,26 +75,6 @@ export default function CreateFigureRecord(): JSX.Element {
   );
   const { enqueueSnackbar } = useSnackbar();
 
-  const canvasIframeId = React.useId();
-
-  const canvasIframeRef = React.useRef<HTMLIFrameElement | null>(null);
-  const canvasIframeClientRef = React.useRef<CanvasIframeClient | null>(null);
-  React.useEffect(() => {
-    if (canvasIframeClientRef.current !== null) {
-      return;
-    }
-
-    const canvasIframeClient = new CanvasIframeClient(
-      canvasIframeId,
-      canvasIframeRef.current!
-    );
-    canvasIframeClientRef.current = canvasIframeClient;
-    return () => {
-      canvasIframeClient.destroy();
-      canvasIframeClientRef.current = null;
-    };
-  });
-
   const [createRecordFigure, createRecordFigureLoading] =
     useMutation<CreateFigureRecord_createFigureRecordMutation>(
       graphql`
@@ -126,6 +106,8 @@ export default function CreateFigureRecord(): JSX.Element {
     } | null>(null);
   const [updateCharacterConfig, updateCharacterConfigLoading] =
     useUpdateCharacterConfig();
+
+  const canvasIframeClientRef = React.useRef<CanvasIframeClient | null>(null);
 
   return (
     <div>
@@ -166,64 +148,41 @@ export default function CreateFigureRecord(): JSX.Element {
           </Alert>
         )}
 
-        <iframe
-          title="canvas"
-          src={`canvas/index.html?${canvasIframeId}`}
-          style={{ width: 256, height: 256, border: "1px solid #ccc" }}
-          ref={canvasIframeRef}
-        ></iframe>
+        <CanvasIframe canvasIframeClientRef={canvasIframeClientRef} />
         <div>
           <Button
             variant="contained"
             onClick={ignoreResult(async () => {
-              const strokes: Float32Array[] = (
-                await canvasIframeClientRef.current!.send({
-                  type: "getStrokes",
-                })
-              ).strokes;
+              const figure =
+                await canvasIframeClientRef.current!.getFigureJSON();
               if (characterConfig === null) {
                 createCharacterConfig({
                   input: {
                     character: character.value,
-                    strokeCount: strokes.length,
+                    strokeCount: figure.strokes.length,
                   },
                 });
               }
               createRecordFigure({
                 variables: {
                   input: {
-                    figure: JSON.stringify({
-                      strokes: strokes.map((stroke) => ({
-                        points: Array.from(
-                          { length: stroke.length / 3 },
-                          (_, i) => ({
-                            x: stroke[i * 3],
-                            y: stroke[i * 3 + 1],
-                            z: stroke[i * 3 + 2] / 10,
-                          })
-                        ),
-                      })),
-                      width: 256,
-                      height: 256,
-                    }),
+                    figure: JSON.stringify(figure),
                     character: character.value,
                   },
                 },
                 onCompleted: ({ createFigureRecord }) => {
                   if (createFigureRecord.errors === null) {
-                    void canvasIframeClientRef.current!.send({
-                      type: "clear",
-                    });
+                    void canvasIframeClientRef.current!.clear();
                     enqueueSnackbar("文字を登録しました", {
                       variant: "success",
                     });
                     if (
                       characterConfig !== null &&
-                      strokes.length !== characterConfig.strokeCount
+                      figure.strokes.length !== characterConfig.strokeCount
                     ) {
                       setMismatchedStrokeCountDialog({
                         configStrokeCount: characterConfig.strokeCount,
-                        figureStrokeCount: strokes.length,
+                        figureStrokeCount: figure.strokes.length,
                       });
                     }
                   } else {
@@ -254,9 +213,7 @@ export default function CreateFigureRecord(): JSX.Element {
           </Button>
           <Button
             onClick={() => {
-              void canvasIframeClientRef.current!.send({
-                type: "clear",
-              });
+              void canvasIframeClientRef.current!.clear();
             }}
           >
             クリア
