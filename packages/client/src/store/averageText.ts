@@ -31,18 +31,15 @@ type Token =
     };
 
 function tokenize(content: string): Token[] {
-  return content
-    .replace(/\r/g, "")
-    .split("")
-    .map((char) => {
-      if (char === " " || char === "　" || char === "\t") {
-        return { type: "space" };
-      } else if (char === "\n") {
-        return { type: "newline" };
-      } else {
-        return { type: "char", value: char };
-      }
-    });
+  return [...content.replace(/\r/g, "")].map((char) => {
+    if (char === " " || char === "　" || char === "\t") {
+      return { type: "space" };
+    } else if (char === "\n") {
+      return { type: "newline" };
+    } else {
+      return { type: "char", value: char };
+    }
+  });
 }
 
 export const tokensStateFamily = selectorFamily({
