@@ -18,6 +18,7 @@ import {
 import Index from "./pages/Index";
 import ListCharacterConfigs from "./pages/ListCharacterConfigs";
 import CreateFigureRecord from "./pages/CreateFigureRecord";
+import BulkCreateFigureRecords from "./pages/BulkCreateFigureRecords";
 import CreateCharacterConfig from "./pages/CreateCharacterConfig";
 import Generate from "./pages/Generate";
 import CssBaseline from "@mui/material/CssBaseline";
@@ -38,6 +39,7 @@ import {
 import { appEnv } from "./AppEnv";
 import ListFigureRecords from "./pages/ListFigureRecords";
 import UpdateCharacterConfig from "./pages/UpdateCharacterConfig";
+import CreateFormBulkCreateFigureRecords from "./pages/CreateFormBulkCreateFigureRecords";
 import { RecoilRoot, useRecoilValue, useRecoilValueLoadable } from "recoil";
 import { loginUserIdQuery } from "./store/user";
 import { LocationState } from "./types/LocationState";
@@ -160,6 +162,13 @@ function AppContainer(): JSX.Element {
                 >
                   文字設定一覧
                 </Button>
+                <Button
+                  component={Link}
+                  to="/figure-records/bulk-create/create-form"
+                  color="inherit"
+                >
+                  一括文字登録フォーム作成
+                </Button>
 
                 <ErrorBoundary
                   fallbackRender={() => {
@@ -209,6 +218,15 @@ function AppInner() {
       <Route path="characters/character/:character/figure-records">
         <Route index element={<ListFigureRecords />} />
         <Route path="create" element={<CreateFigureRecord />} />
+      </Route>
+      <Route path="figure-records">
+        <Route path="bulk-create">
+          <Route index element={<BulkCreateFigureRecords />} />
+          <Route
+            path="create-form"
+            element={<CreateFormBulkCreateFigureRecords />}
+          />
+        </Route>
       </Route>
       <Route path="user-config" element={<UserConfig />} />
       <Route path="*" element={<div>Not found</div>}></Route>
