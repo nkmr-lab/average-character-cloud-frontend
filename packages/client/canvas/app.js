@@ -40,6 +40,11 @@ canvas.addEventListener("pointerup", (e) => {
 
   strokes.push(new Float32Array(drawingPoints.flat()));
   drawingPoints = null;
+  window.parent.postMessage({
+    type: "updateStrokes",
+    id,
+    strokesNumber: strokes.length,
+  });
 });
 
 window.addEventListener(

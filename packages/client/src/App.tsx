@@ -14,6 +14,7 @@ import {
   Link,
   useLocation,
   useNavigate,
+  useSearchParams,
 } from "react-router-dom";
 import Index from "./pages/Index";
 import ListCharacterConfigs from "./pages/ListCharacterConfigs";
@@ -132,6 +133,10 @@ function UserConfigButtonBadge({ children }: { children?: React.ReactNode }) {
 
 function AppContainer(): JSX.Element {
   const loginUserIdLoadable = useRecoilValueLoadable(loginUserIdQuery);
+  const [searchParams] = useSearchParams();
+  const hiddenAppBar =
+    Boolean(loginUserIdLoadable.valueMaybe()) &&
+    searchParams.get("hidden_app_bar") === "true";
 
   const userConfigButton = (
     <Button component={Link} to="/user-config" color="inherit">
@@ -141,56 +146,58 @@ function AppContainer(): JSX.Element {
 
   return (
     <div>
-      <AppBar position="static">
-        <Toolbar>
-          <Typography
-            variant="h6"
-            sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }}
-          >
-            Average Character Cloud
-          </Typography>
-          {loginUserIdLoadable.valueMaybe() ? (
-            <>
-              <Box>
-                <Button component={Link} to="/generate" color="inherit">
-                  文章生成
-                </Button>
-                <Button
-                  component={Link}
-                  to="/character-configs"
-                  color="inherit"
-                >
-                  文字設定一覧
-                </Button>
-                <Button
-                  component={Link}
-                  to="/figure-records/bulk-create/create-form"
-                  color="inherit"
-                >
-                  一括文字登録フォーム作成
-                </Button>
+      {!hiddenAppBar && (
+        <AppBar position="static">
+          <Toolbar>
+            <Typography
+              variant="h6"
+              sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }}
+            >
+              Average Character Cloud
+            </Typography>
+            {loginUserIdLoadable.valueMaybe() ? (
+              <>
+                <Box>
+                  <Button component={Link} to="/generate" color="inherit">
+                    文章生成
+                  </Button>
+                  <Button
+                    component={Link}
+                    to="/character-configs"
+                    color="inherit"
+                  >
+                    文字設定一覧
+                  </Button>
+                  <Button
+                    component={Link}
+                    to="/figure-records/bulk-create/create-form"
+                    color="inherit"
+                  >
+                    一括文字登録フォーム作成
+                  </Button>
 
-                <ErrorBoundary
-                  fallbackRender={() => {
-                    return <>{userConfigButton}</>;
-                  }}
-                >
-                  <Suspense fallback={userConfigButton}>
-                    <UserConfigButtonBadge>
-                      {userConfigButton}
-                    </UserConfigButtonBadge>
-                  </Suspense>
-                </ErrorBoundary>
-              </Box>
-              <form method="post" action="/backend/logout">
-                <Button type="submit" color="inherit">
-                  Logout
-                </Button>
-              </form>
-            </>
-          ) : null}
-        </Toolbar>
-      </AppBar>
+                  <ErrorBoundary
+                    fallbackRender={() => {
+                      return <>{userConfigButton}</>;
+                    }}
+                  >
+                    <Suspense fallback={userConfigButton}>
+                      <UserConfigButtonBadge>
+                        {userConfigButton}
+                      </UserConfigButtonBadge>
+                    </Suspense>
+                  </ErrorBoundary>
+                </Box>
+                <form method="post" action="/backend/logout">
+                  <Button type="submit" color="inherit">
+                    Logout
+                  </Button>
+                </form>
+              </>
+            ) : null}
+          </Toolbar>
+        </AppBar>
+      )}
       <Box component="main" sx={{ p: 2 }}>
         <Handler>
           <Outlet />
@@ -221,7 +228,7 @@ function AppInner() {
       </Route>
       <Route path="figure-records">
         <Route path="bulk-create">
-          <Route index element={<BulkCreateFigureRecords />} />
+          <Route path="id/:id" element={<BulkCreateFigureRecords />} />
           <Route
             path="create-form"
             element={<CreateFormBulkCreateFigureRecords />}

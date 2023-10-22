@@ -1,7 +1,8 @@
 import { Button, Stack, TextField, Typography } from "@mui/material";
-import React from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { ParamsJSON as BulkCreateFigureRecordsParamsJSON } from "./BulkCreateFigureRecords";
+import * as utf8 from "../utils/utf8";
 
 export default function CreateFormBulkCreateFigureRecords(): JSX.Element {
   const {
@@ -9,17 +10,15 @@ export default function CreateFormBulkCreateFigureRecords(): JSX.Element {
     handleSubmit,
     formState: { errors },
   } = useForm<{
-    charactors: string;
+    characters: string;
     number: number;
   }>({
     mode: "onChange",
     defaultValues: {
-      charactors: "",
+      characters: "",
       number: 3,
     },
   });
-
-  const navigate = useNavigate();
 
   return (
     <div>
@@ -27,22 +26,27 @@ export default function CreateFormBulkCreateFigureRecords(): JSX.Element {
       <Stack
         spacing={2}
         component="form"
-        onSubmit={handleSubmit(({ charactors, number }) => {
-          const searchParams = new URLSearchParams();
-          searchParams.set("charactors", charactors);
-          searchParams.set("number", number.toString());
-          navigate(`/figure-records/bulk-create/?${searchParams.toString()}`);
+        onSubmit={handleSubmit(({ characters, number }) => {
+          const paramsJSON: BulkCreateFigureRecordsParamsJSON = {
+            characters: [...characters],
+            number,
+          };
+          open(
+            `/figure-records/bulk-create/id/${utf8.toBase64(
+              JSON.stringify(paramsJSON)
+            )}?hidden_app_bar=true`
+          );
         })}
       >
         <TextField
           label="登録する文字"
           type="text"
-          error={!!errors.charactors}
-          helperText={errors.charactors?.message}
-          {...register("charactors", {
+          error={!!errors.characters}
+          helperText={errors.characters?.message}
+          {...register("characters", {
             required: { value: true, message: "必須項目です" },
             min: { value: 1, message: "1〜100文字にしてください" },
-            max: { value: 100, message: "1〜100文字にしてください" },
+            max: { value: 100, message: "1〜100文字にしてください" }, // TODO: サロゲートペアを考慮する
           })}
         />
         <TextField

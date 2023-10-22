@@ -13,6 +13,7 @@ import { Suspense } from "react";
 import useCreateCharacterConfig from "../hooks/useCreateCharacterConfig";
 import ignoreResult from "../utils/ignoreResult";
 import * as utf8 from "../utils/utf8";
+import { useInDialog } from "../hooks/useBackground";
 
 export default function CreateCharacterConfig(): JSX.Element {
   const [createCharacterConfig, createCharacterConfigLoading] =
@@ -35,6 +36,7 @@ export default function CreateCharacterConfig(): JSX.Element {
 
   const character = watch("character") ?? "";
 
+  const inDialog = useInDialog();
   return (
     <div>
       <Typography variant="h6">文字設定新規作成</Typography>
@@ -48,7 +50,7 @@ export default function CreateCharacterConfig(): JSX.Element {
                 input: { character, strokeCount: parseInt(strokeCount) },
                 onSuccess: () => {
                   reset();
-                  if (characterValue !== undefined) {
+                  if (inDialog) {
                     navigate(-1);
                   }
                 },

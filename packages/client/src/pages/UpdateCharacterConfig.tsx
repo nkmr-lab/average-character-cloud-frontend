@@ -7,6 +7,7 @@ import { useSnackbar } from "notistack";
 import ignoreResult from "../utils/ignoreResult";
 import * as utf8 from "../utils/utf8";
 import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
+import { useInDialog } from "../hooks/useBackground";
 
 export default function UpdateCharacterConfig(): JSX.Element {
   const params = useParams();
@@ -53,7 +54,7 @@ export default function UpdateCharacterConfig(): JSX.Element {
     },
   });
 
-  const { enqueueSnackbar } = useSnackbar();
+  const inDialog = useInDialog();
 
   return (
     <div>
@@ -71,7 +72,9 @@ export default function UpdateCharacterConfig(): JSX.Element {
                 strokeCount: parseInt(strokeCount),
               },
               onSuccess: () => {
-                navigate(-1);
+                if (inDialog) {
+                  navigate(-1);
+                }
               },
             });
           })

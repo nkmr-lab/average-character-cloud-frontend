@@ -8,3 +8,10 @@ export function useBackground(): H.Location {
 
   return state?.background ?? location;
 }
+
+export function useInDialog(): boolean {
+  const location = useLocation();
+  const state = location.state as LocationState;
+
+  return state?.background !== undefined;
+}

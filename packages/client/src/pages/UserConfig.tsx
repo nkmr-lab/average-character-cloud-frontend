@@ -20,6 +20,8 @@ import {
 import { formatError } from "../domains/error";
 import { useSnackbar } from "notistack";
 import ignoreResult from "../utils/ignoreResult";
+import { useInDialog } from "../hooks/useBackground";
+import { useNavigate } from "react-router-dom";
 
 export default function UserConfig(): JSX.Element {
   const { userConfig: userConfigKey } = useLazyLoadQuery<UserConfig_rootQuery>(
@@ -60,6 +62,9 @@ export default function UserConfig(): JSX.Element {
       `
     );
 
+  const inDialog = useInDialog();
+  const navigate = useNavigate();
+
   const { register, handleSubmit, getValues } = useForm<{
     allowSharingCharacterConfigs: boolean;
     allowSharingFigureRecords: boolean;
@@ -90,6 +95,9 @@ export default function UserConfig(): JSX.Element {
                     enqueueSnackbar("ユーザ設定を更新しました", {
                       variant: "success",
                     });
+                    if (inDialog) {
+                      navigate(-1);
+                    }
                   } else {
                     for (const error of updateUserConfig.errors) {
                       enqueueSnackbar(error.message, {

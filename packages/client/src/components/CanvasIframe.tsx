@@ -1,9 +1,16 @@
 import React from "react";
 import { FigureJSON } from "../domains/figure_drawer";
 
+export type CanvasIframeClientEvent = {
+  type: "updateStrokes";
+  id: string;
+  strokesNumber: number;
+};
+
 export class CanvasIframeClient {
   private listener: (event: MessageEvent) => void;
   private requestIdMap: Map<string, (content: any) => void> = new Map();
+  public onEvent?: (evt: CanvasIframeClientEvent) => void;
 
   constructor(private id: string, private iframe: HTMLIFrameElement) {
     this.listener = (event: MessageEvent) => {
@@ -15,7 +22,12 @@ export class CanvasIframeClient {
         return;
       }
       const requestId = data.requestId;
-      this.requestIdMap.get(requestId)!(data);
+      if (requestId === undefined) {
+        this.onEvent?.(data);
+        return;
+      } else {
+        this.requestIdMap.get(requestId)!(data);
+      }
     };
     window.addEventListener("message", this.listener, false);
   }
@@ -64,8 +76,10 @@ export class CanvasIframeClient {
 
 export default function CanvasIframe({
   canvasIframeClientRef,
+  onEvent,
 }: {
   canvasIframeClientRef: React.MutableRefObject<CanvasIframeClient | null>;
+  onEvent?: (evt: CanvasIframeClientEvent) => void;
 }) {
   const iframeId = React.useId();
 
@@ -76,16 +90,18 @@ export default function CanvasIframe({
       return;
     }
 
-    const canvasIframeClient = new CanvasIframeClient(
-      iframeId,
-      iframeRef.current!
-    );
+    const iframe = iframeRef.current!;
+
+    const canvasIframeClient = new CanvasIframeClient(iframeId, iframe);
     canvasIframeClientRef.current = canvasIframeClient;
     return () => {
       canvasIframeClient.destroy();
       canvasIframeClientRef.current = null;
     };
-  });
+  }, [canvasIframeClientRef, iframeId]);
+  React.useEffect(() => {
+    canvasIframeClientRef.current!.onEvent = onEvent;
+  }, [canvasIframeClientRef, onEvent]);
 
   return (
     <iframe

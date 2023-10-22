@@ -75,7 +75,7 @@ export default function CreateFigureRecord(): JSX.Element {
   );
   const { enqueueSnackbar } = useSnackbar();
 
-  const [createRecordFigure, createRecordFigureLoading] =
+  const [createFigureRecord, createFigureRecordLoading] =
     useMutation<CreateFigureRecord_createFigureRecordMutation>(
       graphql`
         mutation CreateFigureRecord_createFigureRecordMutation(
@@ -163,7 +163,7 @@ export default function CreateFigureRecord(): JSX.Element {
                   },
                 });
               }
-              createRecordFigure({
+              createFigureRecord({
                 variables: {
                   input: {
                     figure: JSON.stringify(figure),
@@ -207,7 +207,7 @@ export default function CreateFigureRecord(): JSX.Element {
                 },
               });
             })}
-            disabled={createRecordFigureLoading}
+            disabled={createFigureRecordLoading}
           >
             形状を登録
           </Button>
