@@ -38,6 +38,7 @@ type CharacterConfig implements Node {
   strokeCount: Int!
   createdAt: DateTimeUtc!
   updatedAt: DateTimeUtc!
+  figureRecords(ids: [Ulid!], first: Int, after: String, last: Int, before: String, userType: UserType): FigureRecordConnection!
 }
 
 type Query {
@@ -87,9 +88,8 @@ type FigureRecordConnection {
 type Character implements Node {
   id: ID!
   value: CharacterValue!
-  characterConfig: CharacterConfig
-  characterConfigSeed: CharacterConfigSeed
-  figureRecords(ids: [Ulid!], first: Int, after: String, last: Int, before: String, userType: UserType): FigureRecordConnection!
+  characterConfigs: [CharacterConfig!]!
+  characterConfigSeeds: [CharacterConfigSeed!]!
 }
 
 type CharacterConfigConnection {
@@ -115,7 +115,8 @@ type UpdateFigureRecordPayload {
 
 input UpdateCharacterConfigInput {
   character: CharacterValue!
-  strokeCount: Int
+  strokeCount: Int!
+  ratio: Int
 }
 
 input CreateFigureRecordInput {
@@ -165,4 +166,5 @@ type LoginUser {
 input CreateCharacterConfigInput {
   character: CharacterValue!
   strokeCount: Int!
+  ratio: Int = 100
 }
