@@ -120,9 +120,7 @@ export default function UpdateCharacterConfig({
         </Button>
         <Button
           component={Link}
-          to={`/character-configs/create?${new URLSearchParams([
-            ["character", utf8.toBase64(characterValue)],
-          ]).toString()}`}
+          to={`/figure-records/create/i/${utf8.toBase64(characterValue)}`}
         >
           別の画数を登録する
         </Button>

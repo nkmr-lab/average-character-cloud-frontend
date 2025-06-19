@@ -6,7 +6,7 @@ import {
   useSubscribeToInvalidationState,
 } from "react-relay";
 import React from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import { CreateFigureRecord_rootQuery } from "./__generated__/CreateFigureRecord_rootQuery.graphql";
 import { CreateFigureRecord_characterConfigs$key } from "./__generated__/CreateFigureRecord_characterConfigs.graphql";
 import { CreateFigureRecord_createFigureRecordMutation } from "./__generated__/CreateFigureRecord_createFigureRecordMutation.graphql";
@@ -26,36 +26,15 @@ import * as utf8 from "../utils/utf8";
 import ignoreResult from "../utils/ignoreResult";
 import CanvasIframe, { CanvasIframeClient } from "../components/CanvasIframe";
 import { FigureJSON } from "../domains/figure_drawer";
-
-function parseCharacter(character: string): string {
-  const defaultValue = "あ";
-
-  try {
-    const value = utf8.fromBase64(character);
-    return [...value][0] ?? defaultValue;
-  } catch {
-    return defaultValue;
-  }
-}
-
-function parseStrokeCount(searchParams: URLSearchParams): number | undefined {
-  const strokeCount = searchParams.get("strokeCount");
-  if (strokeCount === null) {
-    return undefined;
-  }
-
-  const parsed = Number(strokeCount);
-  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
-    return undefined;
-  }
-  return parsed;
-}
+import { parseCharacter, parseStrokeCount } from "./params";
 
 export default function CreateFigureRecord(): JSX.Element {
   const params = useParams();
   const [searchParams] = useSearchParams();
-  const characterValue = parseCharacter(params.character!);
-  const strokeCount = parseStrokeCount(searchParams);
+  const characterValue = parseCharacter(params.character);
+  const strokeCount = parseStrokeCount(
+    searchParams.get("strokeCount") ?? undefined
+  );
   const [fetchKey, setFetchKey] = React.useState(0);
   const rootData = useLazyLoadQuery<CreateFigureRecord_rootQuery>(
     graphql`
@@ -81,7 +60,6 @@ export default function CreateFigureRecord(): JSX.Element {
       setFetchKey((prev) => prev + 1);
     }
   );
-  const background = useBackground();
 
   if (rootData.characters.length === 0) {
     throw new Error("character not found");
@@ -90,26 +68,18 @@ export default function CreateFigureRecord(): JSX.Element {
 
   const characterConfigsKey = character.characterConfigs;
 
-  const allCharacterConfigs =
-    useFragment<CreateFigureRecord_characterConfigs$key>(
-      graphql`
-        fragment CreateFigureRecord_characterConfigs on CharacterConfig
-        @relay(plural: true) {
-          id
-          strokeCount
-          disabled
-        }
-      `,
-      characterConfigsKey
-    );
-  const characterConfigs = React.useMemo(
-    () =>
-      allCharacterConfigs.filter(
-        (config) =>
-          strokeCount === undefined || config.strokeCount === strokeCount
-      ),
-    [allCharacterConfigs, strokeCount]
+  const characterConfigs = useFragment<CreateFigureRecord_characterConfigs$key>(
+    graphql`
+      fragment CreateFigureRecord_characterConfigs on CharacterConfig
+      @relay(plural: true) {
+        id
+        strokeCount
+        disabled
+      }
+    `,
+    characterConfigsKey
   );
+
   const { enqueueSnackbar } = useSnackbar();
 
   const [createFigureRecord, createFigureRecordLoading] =
@@ -183,11 +153,10 @@ export default function CreateFigureRecord(): JSX.Element {
     <div>
       <div>
         <div>
-          {characterConfigs.length !== 0 ? (
+          {strokeCount !== undefined ? (
             <>
               画数
-              {characterConfigs.map((config) => config.strokeCount).join(", ")}
-              の
+              {strokeCount}の
             </>
           ) : null}
           「{character.value}」を書いてください。
@@ -202,7 +171,7 @@ export default function CreateFigureRecord(): JSX.Element {
                 await canvasIframeClientRef.current!.getFigureJSON();
 
               if (
-                allCharacterConfigs.some(
+                characterConfigs.some(
                   (config) => config.strokeCount === figure.strokes.length
                 )
               ) {

@@ -7,24 +7,18 @@ import {
   Typography,
 } from "@mui/material";
 import { Stack } from "@mui/system";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link } from "react-router-dom";
 import ListCharacterConfigSeeds from "../components/ListCharacterConfigSeeds";
 import { Suspense } from "react";
 import * as utf8 from "../utils/utf8";
 
 export default function CreateCharacterConfig(): JSX.Element {
-  const [queryParams] = useSearchParams();
-  // TODO: base64
-  const characterValue = queryParams.get("character") ?? undefined;
   const {
     register,
     formState: { errors },
     watch,
   } = useForm<{ character: string }>({
     mode: "onChange",
-    defaultValues: {
-      character: characterValue,
-    },
   });
 
   const character = watch("character") ?? "";
@@ -43,7 +37,6 @@ export default function CreateCharacterConfig(): JSX.Element {
               minLength: { value: 1, message: "1文字で入力してください" },
               maxLength: { value: 1, message: "1文字で入力してください" },
             })}
-            disabled={characterValue !== undefined}
           />
           <Button
             variant="contained"
@@ -55,14 +48,12 @@ export default function CreateCharacterConfig(): JSX.Element {
           </Button>
         </Stack>
       </Box>
-      {characterValue === undefined && (
-        <Box>
-          <Typography variant="h6">他人の設定から文字設定を登録</Typography>
-          <Suspense fallback={<CircularProgress />}>
-            <ListCharacterConfigSeeds />
-          </Suspense>
-        </Box>
-      )}
+      <Box>
+        <Typography variant="h6">他人の設定から文字設定を登録</Typography>
+        <Suspense fallback={<CircularProgress />}>
+          <ListCharacterConfigSeeds />
+        </Suspense>
+      </Box>
     </div>
   );
 }
