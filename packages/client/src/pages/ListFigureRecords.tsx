@@ -42,6 +42,7 @@ import * as icons from "@mui/icons-material";
 import { ListFigureRecords_updateFigureRecordMutation } from "./__generated__/ListFigureRecords_updateFigureRecordMutation.graphql";
 import { useSnackbar } from "notistack";
 import { formatError } from "../domains/error";
+import UpdateCharacterConfig from "../components/UpdateCharacterConfig";
 
 const figureRecordsWrapperStateFamily = selectorFamily({
   key: "ListFigureRecords/figureRecordsWrapperStateFamily",
@@ -206,6 +207,10 @@ export default function ListFigureRecords(): JSX.Element {
 
   return (
     <div>
+      <UpdateCharacterConfig
+        characterValue={characterValue}
+        strokeCount={strokeCount}
+      />
       <Typography variant="h6">文字形状一覧</Typography>
       <Button
         component={Link}

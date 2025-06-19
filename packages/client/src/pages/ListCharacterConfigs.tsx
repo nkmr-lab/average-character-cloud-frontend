@@ -61,13 +61,13 @@ export default function ListCharacterConfigConfigs(): JSX.Element {
 
   return (
     <div>
-      <Typography variant="h6">文字設定一覧</Typography>
+      <Typography variant="h6">文字一覧</Typography>
       <Button
         component={Link}
         to={`/character-configs/create`}
         variant="contained"
       >
-        文字設定を新規作成
+        文字を指定して登録
       </Button>
       {pagination.data.characterConfigs.edges.length !== 0 ? (
         <List sx={{ maxWidth: 240 }}>
@@ -86,7 +86,7 @@ export default function ListCharacterConfigConfigs(): JSX.Element {
                 component={Link}
                 to={`/characters/i/${encodeURIComponent(
                   utf8.toBase64(edge.node.character.value)
-                )}/character-configs/i/${edge.node.strokeCount}/figure-records`}
+                )}/character-configs/i/${edge.node.strokeCount}`}
               >
                 <ListItemText sx={{ width: 50 }}>
                   {edge.node.character.value}

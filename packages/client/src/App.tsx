@@ -39,7 +39,6 @@ import {
 } from "@mui/material";
 import { appEnv } from "./AppEnv";
 import ListFigureRecords from "./pages/ListFigureRecords";
-import UpdateCharacterConfig from "./pages/UpdateCharacterConfig";
 import CreateFormBulkCreateFigureRecords from "./pages/CreateFormBulkCreateFigureRecords";
 import { RecoilRoot, useRecoilValue, useRecoilValueLoadable } from "recoil";
 import { loginUserIdQuery } from "./store/user";
@@ -166,7 +165,7 @@ function AppContainer(): JSX.Element {
                     to="/character-configs"
                     color="inherit"
                   >
-                    文字設定一覧
+                    文字一覧
                   </Button>
                   <Button
                     component={Link}
@@ -220,12 +219,10 @@ function AppInner() {
         <Route path="create" element={<CreateCharacterConfig />} />
       </Route>
       <Route path="characters/i/:character">
-        <Route path="character-configs/i/:strokeCount">
-          <Route path="update" element={<UpdateCharacterConfig />} />
-          <Route path="figure-records">
-            <Route index element={<ListFigureRecords />} />
-          </Route>
-        </Route>
+        <Route
+          path="character-configs/i/:strokeCount"
+          element={<ListFigureRecords />}
+        ></Route>
       </Route>
       <Route path="figure-records">
         <Route path="create/i/:character" element={<CreateFigureRecord />} />
