@@ -27,12 +27,8 @@ import ignoreResult from "../utils/ignoreResult";
 import CanvasIframe, { CanvasIframeClient } from "../components/CanvasIframe";
 import { FigureJSON } from "../domains/figure_drawer";
 
-function parseCharacter(searchParams: URLSearchParams): string {
+function parseCharacter(character: string): string {
   const defaultValue = "あ";
-  const character = searchParams.get("character");
-  if (character === null) {
-    return defaultValue;
-  }
 
   try {
     const value = utf8.fromBase64(character);
@@ -56,8 +52,9 @@ function parseStrokeCount(searchParams: URLSearchParams): number | undefined {
 }
 
 export default function CreateFigureRecord(): JSX.Element {
+  const params = useParams();
   const [searchParams] = useSearchParams();
-  const characterValue = parseCharacter(searchParams);
+  const characterValue = parseCharacter(params.character!);
   const strokeCount = parseStrokeCount(searchParams);
   const [fetchKey, setFetchKey] = React.useState(0);
   const rootData = useLazyLoadQuery<CreateFigureRecord_rootQuery>(

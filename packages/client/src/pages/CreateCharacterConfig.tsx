@@ -91,9 +91,7 @@ export default function CreateCharacterConfig(): JSX.Element {
             variant="contained"
             component={Link}
             disabled={character.length !== 1}
-            to={`/figure-records/create?${new URLSearchParams([
-              ["character", utf8.toBase64(character)],
-            ]).toString()}`}
+            to={`/figure-records/create/i/${utf8.toBase64(character)}`}
           >
             字を書いて自動で画数を識別する
           </Button>

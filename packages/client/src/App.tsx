@@ -228,7 +228,7 @@ function AppInner() {
         </Route>
       </Route>
       <Route path="figure-records">
-        <Route path="create" element={<CreateFigureRecord />} />
+        <Route path="create/i/:character" element={<CreateFigureRecord />} />
         <Route path="bulk-create">
           <Route path="i/:id" element={<BulkCreateFigureRecords />} />
           <Route

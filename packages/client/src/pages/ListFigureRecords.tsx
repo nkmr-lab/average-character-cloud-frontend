@@ -209,8 +209,9 @@ export default function ListFigureRecords(): JSX.Element {
       <Typography variant="h6">文字形状一覧</Typography>
       <Button
         component={Link}
-        to={`/figure-records/create?${new URLSearchParams([
-          ["character", utf8.toBase64(characterValue)],
+        to={`/figure-records/create/i/${utf8.toBase64(
+          characterValue
+        )}?${new URLSearchParams([
           ["strokeCount", String(strokeCount)],
         ]).toString()}`}
         state={{ background }}
