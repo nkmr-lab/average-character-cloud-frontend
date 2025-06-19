@@ -44,13 +44,13 @@ export default function ListCharacterConfigConfigs(): JSX.Element {
             node {
               character {
                 value
-                figureRecords(userType: MYSELF, first: 1) {
-                  edges {
-                    __typename
-                  }
-                }
               }
               strokeCount
+              figureRecords(userType: MYSELF, first: 1) {
+                edges {
+                  __typename
+                }
+              }
             }
           }
         }
@@ -73,10 +73,10 @@ export default function ListCharacterConfigConfigs(): JSX.Element {
         <List sx={{ maxWidth: 240 }}>
           {pagination.data.characterConfigs.edges.map((edge) => (
             <ListItem
-              key={edge.node.character.value}
+              key={`${edge.node.character.value}-${edge.node.strokeCount}`}
               sx={{
                 backgroundColor:
-                  edge.node.character.figureRecords.edges.length === 0
+                  edge.node.figureRecords.edges.length === 0
                     ? "#ffcccc"
                     : undefined,
               }}
@@ -84,9 +84,9 @@ export default function ListCharacterConfigConfigs(): JSX.Element {
             >
               <ListItemButton
                 component={Link}
-                to={`/characters/character/${encodeURIComponent(
+                to={`/characters/i/${encodeURIComponent(
                   utf8.toBase64(edge.node.character.value)
-                )}/figure-records`}
+                )}/character-configs/i/${edge.node.strokeCount}/figure-records`}
               >
                 <ListItemText sx={{ width: 50 }}>
                   {edge.node.character.value}

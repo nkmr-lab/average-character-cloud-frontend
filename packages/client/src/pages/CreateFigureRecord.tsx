@@ -6,9 +6,9 @@ import {
   useSubscribeToInvalidationState,
 } from "react-relay";
 import React from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { CreateFigureRecord_rootQuery } from "./__generated__/CreateFigureRecord_rootQuery.graphql";
-import { CreateFigureRecord_characterConfig$key } from "./__generated__/CreateFigureRecord_characterConfig.graphql";
+import { CreateFigureRecord_characterConfigs$key } from "./__generated__/CreateFigureRecord_characterConfigs.graphql";
 import { CreateFigureRecord_createFigureRecordMutation } from "./__generated__/CreateFigureRecord_createFigureRecordMutation.graphql";
 import Button from "@mui/material/Button";
 import { formatError } from "../domains/error";
@@ -21,15 +21,44 @@ import {
   DialogContent,
   DialogContentText,
 } from "@mui/material";
-import useCreateCharacterConfig from "../hooks/useCreateCharacterConfig";
+import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
 import * as utf8 from "../utils/utf8";
 import ignoreResult from "../utils/ignoreResult";
-import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
 import CanvasIframe, { CanvasIframeClient } from "../components/CanvasIframe";
+import { FigureJSON } from "../domains/figure_drawer";
+
+function parseCharacter(searchParams: URLSearchParams): string {
+  const defaultValue = "あ";
+  const character = searchParams.get("character");
+  if (character === null) {
+    return defaultValue;
+  }
+
+  try {
+    const value = utf8.fromBase64(character);
+    return [...value][0] ?? defaultValue;
+  } catch {
+    return defaultValue;
+  }
+}
+
+function parseStrokeCount(searchParams: URLSearchParams): number | undefined {
+  const strokeCount = searchParams.get("strokeCount");
+  if (strokeCount === null) {
+    return undefined;
+  }
+
+  const parsed = Number(strokeCount);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 1000) {
+    return undefined;
+  }
+  return parsed;
+}
 
 export default function CreateFigureRecord(): JSX.Element {
-  const params = useParams();
-  const characterValue = utf8.fromBase64(params.character!);
+  const [searchParams] = useSearchParams();
+  const characterValue = parseCharacter(searchParams);
+  const strokeCount = parseStrokeCount(searchParams);
   const [fetchKey, setFetchKey] = React.useState(0);
   const rootData = useLazyLoadQuery<CreateFigureRecord_rootQuery>(
     graphql`
@@ -37,8 +66,8 @@ export default function CreateFigureRecord(): JSX.Element {
         characters(values: [$character]) {
           id
           value
-          characterConfig {
-            ...CreateFigureRecord_characterConfig
+          characterConfigs {
+            ...CreateFigureRecord_characterConfigs
           }
         }
       }
@@ -62,16 +91,27 @@ export default function CreateFigureRecord(): JSX.Element {
   }
   const character = rootData.characters[0];
 
-  const characterConfigKey = character.characterConfig;
+  const characterConfigsKey = character.characterConfigs;
 
-  const characterConfig = useFragment<CreateFigureRecord_characterConfig$key>(
-    graphql`
-      fragment CreateFigureRecord_characterConfig on CharacterConfig {
-        id
-        strokeCount
-      }
-    `,
-    characterConfigKey
+  const allCharacterConfigs =
+    useFragment<CreateFigureRecord_characterConfigs$key>(
+      graphql`
+        fragment CreateFigureRecord_characterConfigs on CharacterConfig
+        @relay(plural: true) {
+          id
+          strokeCount
+          disabled
+        }
+      `,
+      characterConfigsKey
+    );
+  const characterConfigs = React.useMemo(
+    () =>
+      allCharacterConfigs.filter(
+        (config) =>
+          strokeCount === undefined || config.strokeCount === strokeCount
+      ),
+    [allCharacterConfigs, strokeCount]
   );
   const { enqueueSnackbar } = useSnackbar();
 
@@ -96,57 +136,65 @@ export default function CreateFigureRecord(): JSX.Element {
         }
       `
     );
-  const [createCharacterConfig, _createCharacterConfigLoading] =
-    useCreateCharacterConfig();
 
   const [mismatchedStrokeCountDialog, setMismatchedStrokeCountDialog] =
     React.useState<{
-      configStrokeCount: number;
-      figureStrokeCount: number;
+      figure: FigureJSON;
     } | null>(null);
   const [updateCharacterConfig, updateCharacterConfigLoading] =
     useUpdateCharacterConfig();
 
   const canvasIframeClientRef = React.useRef<CanvasIframeClient | null>(null);
 
+  const submit = (figure: FigureJSON) =>
+    createFigureRecord({
+      variables: {
+        input: {
+          figure: JSON.stringify(figure),
+          character: character.value,
+        },
+      },
+      onCompleted: ({ createFigureRecord }) => {
+        if (createFigureRecord.errors === null) {
+          void canvasIframeClientRef.current!.clear();
+          enqueueSnackbar("文字を登録しました", {
+            variant: "success",
+          });
+        } else {
+          for (const error of createFigureRecord.errors) {
+            enqueueSnackbar(error.message, {
+              variant: "error",
+            });
+          }
+        }
+      },
+      onError: (error) => {
+        enqueueSnackbar(formatError(error), {
+          variant: "error",
+        });
+      },
+      updater: (store, data) => {
+        if (data.createFigureRecord.figureRecord !== null) {
+          store
+            .get(data.createFigureRecord.figureRecord.character.id)!
+            .invalidateRecord();
+        }
+      },
+    });
+
   return (
     <div>
       <div>
-        {characterConfig !== null ? (
-          <div>
-            画数{characterConfig.strokeCount}の「
-            {character.value}」
-            <Button
-              component={Link}
-              to={`/character-configs/character/${encodeURIComponent(
-                utf8.toBase64(character.value)
-              )}/update`}
-              state={{ background }}
-            >
-              画数を変更
-            </Button>
-          </div>
-        ) : (
-          <Alert
-            severity="warning"
-            action={
-              <Button
-                component={Link}
-                to={`/character-configs/create?${new URLSearchParams([
-                  ["character", character.value],
-                ]).toString()}`}
-                state={{ background }}
-              >
-                手動登録
-              </Button>
-            }
-          >
-            「{character.value}
-            」の画数設定が見つかりませんでした。
-            <br />
-            このまま続けた場合は、書いた字の画数が自動で設定されます。
-          </Alert>
-        )}
+        <div>
+          {characterConfigs.length !== 0 ? (
+            <>
+              画数
+              {characterConfigs.map((config) => config.strokeCount).join(", ")}
+              の
+            </>
+          ) : null}
+          「{character.value}」を書いてください。
+        </div>
 
         <CanvasIframe canvasIframeClientRef={canvasIframeClientRef} />
         <div>
@@ -155,57 +203,18 @@ export default function CreateFigureRecord(): JSX.Element {
             onClick={ignoreResult(async () => {
               const figure =
                 await canvasIframeClientRef.current!.getFigureJSON();
-              if (characterConfig === null) {
-                createCharacterConfig({
-                  input: {
-                    character: character.value,
-                    strokeCount: figure.strokes.length,
-                  },
+
+              if (
+                allCharacterConfigs.some(
+                  (config) => config.strokeCount === figure.strokes.length
+                )
+              ) {
+                submit(figure);
+              } else {
+                setMismatchedStrokeCountDialog({
+                  figure,
                 });
               }
-              createFigureRecord({
-                variables: {
-                  input: {
-                    figure: JSON.stringify(figure),
-                    character: character.value,
-                  },
-                },
-                onCompleted: ({ createFigureRecord }) => {
-                  if (createFigureRecord.errors === null) {
-                    void canvasIframeClientRef.current!.clear();
-                    enqueueSnackbar("文字を登録しました", {
-                      variant: "success",
-                    });
-                    if (
-                      characterConfig !== null &&
-                      figure.strokes.length !== characterConfig.strokeCount
-                    ) {
-                      setMismatchedStrokeCountDialog({
-                        configStrokeCount: characterConfig.strokeCount,
-                        figureStrokeCount: figure.strokes.length,
-                      });
-                    }
-                  } else {
-                    for (const error of createFigureRecord.errors) {
-                      enqueueSnackbar(error.message, {
-                        variant: "error",
-                      });
-                    }
-                  }
-                },
-                onError: (error) => {
-                  enqueueSnackbar(formatError(error), {
-                    variant: "error",
-                  });
-                },
-                updater: (store, data) => {
-                  if (data.createFigureRecord.figureRecord !== null) {
-                    store
-                      .get(data.createFigureRecord.figureRecord.character.id)!
-                      .invalidateRecord();
-                  }
-                },
-              });
             })}
             disabled={createFigureRecordLoading}
           >
@@ -229,37 +238,35 @@ export default function CreateFigureRecord(): JSX.Element {
         >
           <DialogContent>
             <DialogContentText>
-              この文字の画数は{mismatchedStrokeCountDialog.configStrokeCount}
-              と登録されていますが、
-              {mismatchedStrokeCountDialog.figureStrokeCount}
-              画の文字が書かれました。画数が設定と異なる文字は利用されません。
-              {mismatchedStrokeCountDialog.figureStrokeCount}
-              画で設定を更新しますか？
+              「{character.value}」は
+              {mismatchedStrokeCountDialog.figure.strokes.length}
+              画であっていますか？
             </DialogContentText>
           </DialogContent>
           <DialogActions>
             <Button
               onClick={() => {
                 setMismatchedStrokeCountDialog(null);
-              }}
-            >
-              現在の画数設定を維持する
-            </Button>
-            <Button
-              onClick={() => {
                 updateCharacterConfig({
                   input: {
                     character: character.value,
-                    strokeCount: mismatchedStrokeCountDialog.figureStrokeCount,
-                  },
-                  onSuccess: () => {
-                    setMismatchedStrokeCountDialog(null);
+                    strokeCount:
+                      mismatchedStrokeCountDialog.figure.strokes.length,
+                    disabled: false,
                   },
                 });
+                submit(mismatchedStrokeCountDialog.figure);
               }}
               disabled={updateCharacterConfigLoading}
             >
-              画数設定を更新する
+              はい
+            </Button>
+            <Button
+              onClick={() => {
+                setMismatchedStrokeCountDialog(null);
+              }}
+            >
+              いいえ
             </Button>
           </DialogActions>
         </Dialog>

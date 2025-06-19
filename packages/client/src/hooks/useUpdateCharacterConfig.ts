@@ -4,7 +4,12 @@ import { formatError } from "../domains/error";
 import { useUpdateCharacterConfig_updateCharacterConfigMutation } from "./__generated__/useUpdateCharacterConfig_updateCharacterConfigMutation.graphql";
 
 type Cb = (_: {
-  input: { character: string; strokeCount?: number };
+  input: {
+    character: string;
+    strokeCount: number;
+    ratio?: number;
+    disabled?: boolean;
+  };
   onSuccess?: () => void;
   onError?: () => void;
 }) => void;
@@ -43,6 +48,8 @@ export default function useUpdateCharacterConfig(): [Cb, boolean] {
           input: {
             character: input.character,
             strokeCount: input.strokeCount,
+            ratio: input.ratio,
+            disabled: input.disabled,
           },
         },
         onCompleted: ({ updateCharacterConfig }) => {

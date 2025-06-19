@@ -153,7 +153,7 @@ function AppContainer(): JSX.Element {
               variant="h6"
               sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }}
             >
-              Average Character Cloud
+              {appEnv.appName}
             </Typography>
             {loginUserIdLoadable.valueMaybe() ? (
               <>
@@ -218,17 +218,19 @@ function AppInner() {
       <Route path="character-configs">
         <Route index element={<ListCharacterConfigs />} />
         <Route path="create" element={<CreateCharacterConfig />} />
-        <Route path="character/:character">
+      </Route>
+      <Route path="characters/i/:character">
+        <Route path="character-configs/i/:strokeCount">
           <Route path="update" element={<UpdateCharacterConfig />} />
+          <Route path="figure-records">
+            <Route index element={<ListFigureRecords />} />
+          </Route>
         </Route>
       </Route>
-      <Route path="characters/character/:character/figure-records">
-        <Route index element={<ListFigureRecords />} />
-        <Route path="create" element={<CreateFigureRecord />} />
-      </Route>
       <Route path="figure-records">
+        <Route path="create" element={<CreateFigureRecord />} />
         <Route path="bulk-create">
-          <Route path="id/:id" element={<BulkCreateFigureRecords />} />
+          <Route path="i/:id" element={<BulkCreateFigureRecords />} />
           <Route
             path="create-form"
             element={<CreateFormBulkCreateFigureRecords />}

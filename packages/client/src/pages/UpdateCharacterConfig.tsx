@@ -1,33 +1,38 @@
 import { graphql, useLazyLoadQuery } from "react-relay";
 import { UpdateCharacterConfig_rootQuery } from "./__generated__/UpdateCharacterConfig_rootQuery.graphql";
 import { useForm } from "react-hook-form";
-import { Button, TextField, Typography, Stack } from "@mui/material";
-import { useNavigate, useParams } from "react-router-dom";
+import { Button, TextField, Typography, Stack, Slider } from "@mui/material";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useSnackbar } from "notistack";
 import ignoreResult from "../utils/ignoreResult";
 import * as utf8 from "../utils/utf8";
 import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
 import { useInDialog } from "../hooks/useBackground";
+import React from "react";
 
 export default function UpdateCharacterConfig(): JSX.Element {
   const params = useParams();
   const characterValue = utf8.fromBase64(params.character!);
+  const strokeCount = Number(params.strokeCount!);
   const navigate = useNavigate();
 
   const { characters } = useLazyLoadQuery<UpdateCharacterConfig_rootQuery>(
     graphql`
-      query UpdateCharacterConfig_rootQuery($character: CharacterValue!) {
+      query UpdateCharacterConfig_rootQuery(
+        $character: CharacterValue!
+        $strokeCount: Int!
+      ) {
         characters(values: [$character]) {
-          characterConfig {
+          characterConfig(strokeCount: $strokeCount) {
             character {
               value
             }
-            strokeCount
+            ratio
           }
         }
       }
     `,
-    { character: characterValue },
+    { character: characterValue, strokeCount },
     { fetchPolicy: "store-and-network" }
   );
 
@@ -43,60 +48,57 @@ export default function UpdateCharacterConfig(): JSX.Element {
   const [updateCharacterConfig, updateCharacterConfigLoading] =
     useUpdateCharacterConfig();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<{ strokeCount: string }>({
-    mode: "onChange",
-    defaultValues: {
-      strokeCount: characterConfig.strokeCount.toString(),
-    },
-  });
+  const [ratio, setRatio] = React.useState<number>(characterConfig.ratio);
 
   const inDialog = useInDialog();
 
   return (
     <div>
       <Typography variant="h6">
-        「{characterConfig.character.value}」文字設定変更
+        「{characterConfig.character.value}」({strokeCount}画)の文字設定変更
       </Typography>
       <Stack
         spacing={2}
         component="form"
-        onSubmit={ignoreResult(
-          handleSubmit(({ strokeCount }) => {
-            updateCharacterConfig({
-              input: {
-                character: characterConfig.character.value,
-                strokeCount: parseInt(strokeCount),
-              },
-              onSuccess: () => {
-                if (inDialog) {
-                  navigate(-1);
-                }
-              },
-            });
-          })
-        )}
+        onSubmit={() => {
+          updateCharacterConfig({
+            input: {
+              character: characterConfig.character.value,
+              strokeCount,
+              ratio: Number(ratio),
+            },
+            onSuccess: () => {
+              if (inDialog) {
+                navigate(-1);
+              }
+            },
+          });
+        }}
       >
-        <TextField
-          label="画数"
-          type="number"
-          error={!!errors.strokeCount}
-          helperText={errors.strokeCount?.message}
-          {...register("strokeCount", {
-            required: { value: true, message: "必須項目です" },
-            min: { value: 1, message: "1〜100にしてください" },
-            max: { value: 100, message: "1〜100にしてください" },
-          })}
-        />
+        <Typography>この画数の採用割合(%)</Typography>
+        <Slider
+          min={1}
+          max={100}
+          step={1}
+          value={ratio}
+          onChange={(_, value) => {
+            setRatio(value as number);
+          }}
+        ></Slider>
         <Button
           type="submit"
           variant="contained"
           disabled={updateCharacterConfigLoading}
         >
           更新
+        </Button>
+        <Button
+          component={Link}
+          to={`/character-configs/create?${new URLSearchParams([
+            ["character", utf8.toBase64(characterValue)],
+          ]).toString()}`}
+        >
+          別の画数を登録する
         </Button>
       </Stack>
     </div>

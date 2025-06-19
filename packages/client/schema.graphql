@@ -13,7 +13,6 @@ enum UserType {
 
 type Mutation {
   createFigureRecord(input: CreateFigureRecordInput!): CreateFigureRecordPayload!
-  createCharacterConfig(input: CreateCharacterConfigInput!): CreateCharacterConfigPayload!
   updateCharacterConfig(input: UpdateCharacterConfigInput!): UpdateCharacterConfigPayload!
   updateFigureRecord(input: UpdateFigureRecordInput!): UpdateFigureRecordPayload!
   updateUserConfig(input: UpdateUserConfigInput!): UpdateUserConfigPayload!
@@ -36,8 +35,9 @@ type CharacterConfig implements Node {
   id: ID!
   character: Character!
   strokeCount: Int!
-  createdAt: DateTimeUtc!
-  updatedAt: DateTimeUtc!
+  ratio: Int!
+  updatedAt: DateTimeUtc
+  disabled: Boolean!
   figureRecords(ids: [Ulid!], first: Int, after: String, last: Int, before: String, userType: UserType): FigureRecordConnection!
 }
 
@@ -70,11 +70,6 @@ type CharacterConfigEdge {
 
 scalar CharacterValue
 
-type CreateCharacterConfigPayload {
-  characterConfig: CharacterConfig
-  errors: [Error!]
-}
-
 input UpdateFigureRecordInput {
   id: Ulid!
   disabled: Boolean
@@ -89,7 +84,9 @@ type Character implements Node {
   id: ID!
   value: CharacterValue!
   characterConfigs: [CharacterConfig!]!
+  characterConfig(strokeCount: Int!): CharacterConfig!
   characterConfigSeeds: [CharacterConfigSeed!]!
+  characterConfigSeed(strokeCount: Int!): CharacterConfigSeed
 }
 
 type CharacterConfigConnection {
@@ -117,6 +114,7 @@ input UpdateCharacterConfigInput {
   character: CharacterValue!
   strokeCount: Int!
   ratio: Int
+  disabled: Boolean
 }
 
 input CreateFigureRecordInput {
@@ -161,10 +159,4 @@ input UpdateUserConfigInput {
 
 type LoginUser {
   userId: String!
-}
-
-input CreateCharacterConfigInput {
-  character: CharacterValue!
-  strokeCount: Int!
-  ratio: Int = 100
 }

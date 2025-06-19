@@ -10,14 +10,14 @@ import { Stack } from "@mui/system";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import ListCharacterConfigSeeds from "../components/ListCharacterConfigSeeds";
 import { Suspense } from "react";
-import useCreateCharacterConfig from "../hooks/useCreateCharacterConfig";
+import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
 import ignoreResult from "../utils/ignoreResult";
 import * as utf8 from "../utils/utf8";
 import { useInDialog } from "../hooks/useBackground";
 
 export default function CreateCharacterConfig(): JSX.Element {
-  const [createCharacterConfig, createCharacterConfigLoading] =
-    useCreateCharacterConfig();
+  const [updateCharacterConfig, updateCharacterConfigLoading] =
+    useUpdateCharacterConfig();
   const navigate = useNavigate();
   const [queryParams] = useSearchParams();
   const characterValue = queryParams.get("character") ?? undefined;
@@ -46,7 +46,7 @@ export default function CreateCharacterConfig(): JSX.Element {
           component="form"
           onSubmit={ignoreResult(
             handleSubmit(({ character, strokeCount }) => {
-              createCharacterConfig({
+              updateCharacterConfig({
                 input: { character, strokeCount: parseInt(strokeCount) },
                 onSuccess: () => {
                   reset();
@@ -83,7 +83,7 @@ export default function CreateCharacterConfig(): JSX.Element {
           <Button
             type="submit"
             variant="contained"
-            disabled={createCharacterConfigLoading}
+            disabled={updateCharacterConfigLoading}
           >
             登録
           </Button>
@@ -91,9 +91,9 @@ export default function CreateCharacterConfig(): JSX.Element {
             variant="contained"
             component={Link}
             disabled={character.length !== 1}
-            to={`/characters/character/${encodeURIComponent(
-              utf8.toBase64(character)
-            )}/figure-records/create`}
+            to={`/figure-records/create?${new URLSearchParams([
+              ["character", utf8.toBase64(character)],
+            ]).toString()}`}
           >
             字を書いて自動で画数を識別する
           </Button>

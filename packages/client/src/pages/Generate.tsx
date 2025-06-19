@@ -788,9 +788,9 @@ function UsingCharacters({
         >
           <ListItemButton
             component={Link}
-            to={`/characters/character/${encodeURIComponent(
-              utf8.toBase64(value)
-            )}/figure-records/create`}
+            to={`/figure-records/create?${new URLSearchParams([
+              ["character", utf8.toBase64(value)],
+            ]).toString()}`}
             state={{ background }}
           >
             <ListItemText> 「{value}」の形状を追加する</ListItemText>

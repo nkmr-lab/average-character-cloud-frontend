@@ -17,6 +17,7 @@ import {
 } from "./__generated__/averageText_figureRecordsQuery.graphql";
 import { graphQLSelectorFamily } from "recoil-relay";
 import RelayEnvironment from "../RelayEnvironment";
+import XorShift from "../domains/XorShift";
 
 type Token =
   | {
@@ -72,15 +73,19 @@ export const figureRecordsQueryFamily = graphQLSelectorFamily({
       characters(values: $characters) {
         id
         value
-        figureRecords(first: 10, userType: MYSELF) {
-          ...averageFigureSelector_figureRecords
-          edges {
-            __typename
+        characterConfigs {
+          strokeCount
+          ratio
+          figureRecords(first: 10, userType: MYSELF) {
+            ...averageFigureSelector_figureRecords
+            edges {
+              __typename
+            }
           }
-        }
-        sharedFigureRecords: figureRecords(first: 10, userType: OTHER)
-          @include(if: $enableUseSharedFigureRecords) {
-          ...averageFigureSelector_figureRecords
+          sharedFigureRecords: figureRecords(first: 10, userType: OTHER)
+            @include(if: $enableUseSharedFigureRecords) {
+            ...averageFigureSelector_figureRecords
+          }
         }
       }
     }
@@ -133,7 +138,12 @@ export const usingCharactersStateFamily = selectorFamily({
       contentState: RecoilValue<string>;
       enableUseSharedFigureRecordsState: RecoilValue<boolean>;
     }) =>
-    ({ get }) => {
+    ({
+      get,
+    }): {
+      value: string;
+      count: number;
+    }[] => {
       const tokens = get(tokensStateFamily({ contentState }));
       const figureRecords = get(
         figureRecordsQueryFamily({
@@ -144,7 +154,9 @@ export const usingCharactersStateFamily = selectorFamily({
       const figureRecordsMap = new Map(
         figureRecords.characters.map((character) => [
           character.value,
-          character.figureRecords,
+          character.characterConfigs.flatMap(
+            (characterConfig) => characterConfig.figureRecords.edges
+          ),
         ])
       );
       return [
@@ -157,7 +169,7 @@ export const usingCharactersStateFamily = selectorFamily({
         .sort()
         .map((character) => ({
           value: character,
-          count: figureRecordsMap.get(character)!.edges.length ?? 0,
+          count: figureRecordsMap.get(character)?.length ?? 0,
         }));
     },
 });
@@ -175,6 +187,135 @@ const seedStateFamily = selectorFamily({
     ({ get }) => {
       const seeds = get(seedsState);
       return seeds.get(index) ?? index;
+    },
+});
+
+const pickup2FigureRecordsFamily = selectorFamily({
+  key: "averageText/pickup2FigureRecordsFamily",
+  get:
+    ({
+      seedState,
+      figureRecordsQueryState,
+      character,
+    }: {
+      seedState: RecoilValue<number>;
+      figureRecordsQueryState: RecoilValue<averageText_figureRecordsQuery$data>;
+      character: string;
+    }) =>
+    ({
+      get,
+    }): {
+      figureRecords: FigureRecordsWrapper | null;
+      sharedFigureRecords: FigureRecordsWrapper | null;
+    } => {
+      const figureRecords = get(figureRecordsQueryState);
+
+      // TODO: O(N)
+      const characterConfigs = figureRecords.characters.find(
+        ({ value }) => value === character
+      )?.characterConfigs;
+
+      if (characterConfigs === undefined) {
+        return {
+          figureRecords: null,
+          sharedFigureRecords: null,
+        };
+      }
+
+      const seed = get(seedState);
+      const rng = new XorShift(seed);
+
+      const nonEmpty = characterConfigs.filter(
+        (config) => config.figureRecords.edges.length > 0
+      );
+      if (nonEmpty.length === 0) {
+        return {
+          figureRecords: null,
+          sharedFigureRecords: null,
+        };
+      }
+      let ratioSum = 0;
+      const ratioSums: number[] = [];
+      for (const item of nonEmpty) {
+        ratioSum += item.ratio;
+        ratioSums.push(ratioSum);
+      }
+
+      // ratioが全て0なら全て等確率で選択する
+      if (ratioSum <= 0) {
+        for (let i = 0; i < nonEmpty.length; i++) {
+          ratioSums[i] = 1;
+        }
+        ratioSum = nonEmpty.length;
+      }
+
+      for (let i = 0; i < nonEmpty.length; i++) {
+        ratioSums[i] /= ratioSum;
+      }
+
+      const randomValue = rng.nextFloat();
+      let selectedIndex = 0;
+      for (let i = 0; i < ratioSums.length; i++) {
+        if (randomValue < ratioSums[i]) {
+          selectedIndex = i;
+          break;
+        }
+      }
+      const characterConfig = nonEmpty[selectedIndex];
+      return {
+        figureRecords: new FigureRecordsWrapper(characterConfig.figureRecords),
+        sharedFigureRecords: characterConfig.sharedFigureRecords
+          ? new FigureRecordsWrapper(characterConfig.sharedFigureRecords)
+          : null,
+      };
+    },
+});
+
+const pickupFigureRecordsFamily = selectorFamily({
+  key: "averageText/pickupFigureRecordsFamily",
+  get:
+    ({
+      seedState,
+      figureRecordsQueryState,
+      character,
+    }: {
+      seedState: RecoilValue<number>;
+      figureRecordsQueryState: RecoilValue<averageText_figureRecordsQuery$data>;
+      character: string;
+    }) =>
+    ({ get }) => {
+      const { figureRecords } = get(
+        pickup2FigureRecordsFamily({
+          seedState,
+          figureRecordsQueryState,
+          character,
+        })
+      );
+      return figureRecords;
+    },
+});
+
+const pickupSharedFigureRecordsFamily = selectorFamily({
+  key: "averageText/pickupSharedFigureRecordsFamily",
+  get:
+    ({
+      seedState,
+      figureRecordsQueryState,
+      character,
+    }: {
+      seedState: RecoilValue<number>;
+      figureRecordsQueryState: RecoilValue<averageText_figureRecordsQuery$data>;
+      character: string;
+    }) =>
+    ({ get }) => {
+      const { sharedFigureRecords } = get(
+        pickup2FigureRecordsFamily({
+          seedState,
+          figureRecordsQueryState,
+          character,
+        })
+      );
+      return sharedFigureRecords;
     },
 });
 
@@ -223,26 +364,10 @@ export const averageTextStateFamily = selectorFamily({
     ({ get }): FigureRendererTypes.Text => {
       const mode = get(modeState);
       const tokens = get(tokensStateFamily({ contentState }));
-      const figureRecords = get(
-        figureRecordsQueryFamily({
-          contentState,
-          enableUseSharedFigureRecordsState,
-        })
-      );
-
-      const figureRecordsMap = new Map(
-        figureRecords.characters.map((character) => [
-          character.value,
-          character.figureRecords,
-        ])
-      );
-      const sharedFigureRecordsMap = new Map(
-        figureRecords.characters.map((character) => [
-          character.value,
-          character.sharedFigureRecords,
-        ])
-      );
-
+      const figureRecordsQueryState = figureRecordsQueryFamily({
+        contentState,
+        enableUseSharedFigureRecordsState,
+      });
       const fontSize = get(fontSizeState);
       const left = get(leftState);
       const top = get(topState);
@@ -256,16 +381,17 @@ export const averageTextStateFamily = selectorFamily({
             .map((token) => (token.type === "char" ? token : null))
             .filter(isNotNull)
             .map((token, i) => {
-              const sharedFigureRecords = sharedFigureRecordsMap.get(
-                token.value
-              );
               return averageFigureStateFamily({
-                figureRecords: new FigureRecordsWrapper(
-                  figureRecordsMap.get(token.value)!
-                ),
-                sharedFigureRecords: sharedFigureRecords
-                  ? new FigureRecordsWrapper(sharedFigureRecords)
-                  : null,
+                figureRecordsState: pickupFigureRecordsFamily({
+                  seedState: seedStateFamily({ seedsState, index: i }),
+                  figureRecordsQueryState,
+                  character: token.value,
+                }),
+                sharedFigureRecordsState: pickupSharedFigureRecordsFamily({
+                  seedState: seedStateFamily({ seedsState, index: i }),
+                  figureRecordsQueryState,
+                  character: token.value,
+                }),
                 character: token.value,
                 seedState: seedStateFamily({ seedsState, index: i }),
                 randomLevelState,

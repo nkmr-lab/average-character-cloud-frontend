@@ -36,9 +36,9 @@ export default function AverageFigureRecords({
         <Tooltip title="登録されていない文字です">
           <IconButton
             component={Link}
-            to={`/characters/character/${encodeURIComponent(
-              utf8.toBase64(figure.value)
-            )}/figure-records/create`}
+            to={`/figure-records/create?${new URLSearchParams([
+              ["character", utf8.toBase64(figure.value)],
+            ]).toString()}`}
             state={{ background }}
             sx={{
               width: figure.size,

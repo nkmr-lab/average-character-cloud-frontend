@@ -34,7 +34,8 @@
     "relay:watch": "relay-compiler -w",
     "build": "npm run codegen && vite build && mv dist/index.html dist/.index.html",
     "codegen": "relay-compiler",
-    "check": "tsc"
+    "check": "tsc",
+    "fetch-schema": "node ./fetch-schema.mjs"
   },
   "devDependencies": {
     "@types/react-relay": "^13.0.2",

@@ -31,6 +31,7 @@ import * as utf8 from "../utils/utf8";
 import {
   atomFamily,
   constSelector,
+  selectorFamily,
   useRecoilState_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue,
 } from "recoil";
@@ -41,6 +42,17 @@ import * as icons from "@mui/icons-material";
 import { ListFigureRecords_updateFigureRecordMutation } from "./__generated__/ListFigureRecords_updateFigureRecordMutation.graphql";
 import { useSnackbar } from "notistack";
 import { formatError } from "../domains/error";
+
+const figureRecordsWrapperStateFamily = selectorFamily({
+  key: "ListFigureRecords/figureRecordsWrapperStateFamily",
+  get:
+    ({ value }: { value: FigureRecordsWrapper }) =>
+    () => {
+      // 無限ループを避けるためのworkaround
+      // constSelectorは参照で同一性チェックされるが、selectorFamilyはtoJSONで同一性チェックされるので無限ループを避けられる
+      return value;
+    },
+});
 
 const seedStateFamily = atomFamily({
   key: "ListFigureRecords/seedStateFamily",
@@ -63,25 +75,30 @@ export default function ListFigureRecords(): JSX.Element {
   const count = 100;
   const params = useParams();
   const characterValue = utf8.fromBase64(params.character!);
+  const strokeCount = Number(params.strokeCount!);
   const [fetchKey, setFetchKey] = React.useState(0);
   const [isPending, startTransition] = React.useTransition();
   const { characters } = useLazyLoadQuery<ListFigureRecords_rootQuery>(
     graphql`
       query ListFigureRecords_rootQuery(
         $character: CharacterValue!
+        $strokeCount: Int!
         $cursor: String
         $count: Int!
       ) {
         characters(values: [$character]) {
           id
-          ...ListFigureRecords_figureRecords
-            @arguments(cursor: $cursor, count: $count)
+          characterConfig(strokeCount: $strokeCount) {
+            ...ListFigureRecords_figureRecords
+              @arguments(cursor: $cursor, count: $count)
+          }
         }
       }
     `,
     {
       count,
       character: characterValue,
+      strokeCount,
     },
     { fetchPolicy: "store-and-network", fetchKey }
   );
@@ -134,12 +151,19 @@ export default function ListFigureRecords(): JSX.Element {
 
   const character = characters[0];
 
+  const characterConfigKey = character.characterConfig;
+  if (characterConfigKey === null) {
+    throw new Error(
+      `CharacterConfig not found for character: ${characterValue}`
+    );
+  }
+
   const pagination = usePaginationFragment<
     ListFigureRecords_figureRecordsQuery,
     ListFigureRecords_figureRecords$key
   >(
     graphql`
-      fragment ListFigureRecords_figureRecords on Character
+      fragment ListFigureRecords_figureRecords on CharacterConfig
       @argumentDefinitions(cursor: { type: "String" }, count: { type: "Int!" })
       @refetchable(queryName: "ListFigureRecords_figureRecordsQuery") {
         figureRecords(after: $cursor, first: $count, userType: MYSELF)
@@ -155,17 +179,20 @@ export default function ListFigureRecords(): JSX.Element {
         }
       }
     `,
-    character
+    characterConfigKey
   );
 
   const seedState = seedStateFamily({ character: characterValue });
   const [_seed, setSeed] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(seedState);
   const background = useBackground();
+
   const averageFigure = useRecoilValue(
     averageFigureStateFamily({
-      figureRecords: new FigureRecordsWrapper(pagination.data.figureRecords),
-      sharedFigureRecords: null,
+      figureRecordsState: figureRecordsWrapperStateFamily({
+        value: new FigureRecordsWrapper(pagination.data.figureRecords),
+      }),
+      sharedFigureRecordsState: constSelector(null),
       character: characterValue,
       seedState,
       randomLevelState: debouncedRandomLevelState,
@@ -182,9 +209,10 @@ export default function ListFigureRecords(): JSX.Element {
       <Typography variant="h6">文字形状一覧</Typography>
       <Button
         component={Link}
-        to={`/characters/character/${encodeURIComponent(
-          utf8.toBase64(characterValue)
-        )}/figure-records/create`}
+        to={`/figure-records/create?${new URLSearchParams([
+          ["character", utf8.toBase64(characterValue)],
+          ["strokeCount", String(strokeCount)],
+        ]).toString()}`}
         state={{ background }}
         variant="contained"
       >
