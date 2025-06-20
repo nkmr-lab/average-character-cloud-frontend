@@ -186,7 +186,7 @@ const seedStateFamily = selectorFamily({
     }) =>
     ({ get }) => {
       const seeds = get(seedsState);
-      return seeds.get(index) ?? index;
+      return seeds.get(index) ?? XorShift.initSeed(index);
     },
 });
 
