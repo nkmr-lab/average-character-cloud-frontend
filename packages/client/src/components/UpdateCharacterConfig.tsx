@@ -9,12 +9,14 @@ import {
   Box,
   FormControlLabel,
   Checkbox,
+  FormHelperText,
+  FormGroup,
 } from "@mui/material";
 import { Link } from "react-router-dom";
 import * as utf8 from "../utils/utf8";
 import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
 import React from "react";
-import { useForm } from "react-hook-form";
+import { Controller, useForm } from "react-hook-form";
 import ignoreResult from "../utils/ignoreResult";
 import { CheckBox } from "@mui/icons-material";
 
@@ -64,11 +66,9 @@ export default function UpdateCharacterConfig({
     register,
     handleSubmit,
     formState: { errors },
+    control,
   } = useForm<{ ratio: number; enabled: boolean }>({
     mode: "onChange",
-    defaultValues: {
-      ratio: characterConfig.ratio,
-    },
   });
 
   return (
@@ -92,25 +92,42 @@ export default function UpdateCharacterConfig({
         <Typography variant="h6">
           「{characterConfig.character.value}」({strokeCount}画)の文字設定
         </Typography>
-        <TextField
-          label="この画数の採用割合(%)"
-          error={!!errors.ratio}
-          helperText={errors.ratio?.message}
-          {...register("ratio", {
-            required: { value: true, message: "必須項目です" },
-            min: { value: 1, message: "1～100%の間で入力してください" },
-            max: { value: 100, message: "1～100%の間で入力してください" },
-          })}
-        />
-        <FormControlLabel
-          control={
-            <Checkbox
-              {...register("enabled", {})}
-              defaultChecked={!characterConfig.disabled}
-            />
-          }
-          label="この画数の文字を利用する"
-        />
+        <FormGroup>
+          <Typography variant="subtitle2">この画数の採用割合</Typography>
+          <FormHelperText>
+            「{characterConfig.character.value}
+            」の別の画数の形状が登録されている時にどのくらいの割合で
+            {strokeCount}
+            画の形状を利用するかを設定します。通常は100%で問題ありません。
+          </FormHelperText>
+          <Controller
+            name="ratio"
+            control={control}
+            defaultValue={characterConfig.ratio}
+            render={({ field }) => (
+              <Slider
+                {...field}
+                max={100}
+                step={1}
+                valueLabelDisplay="auto"
+                valueLabelFormat={(value) => `${value}%`}
+              />
+            )}
+          />
+          <FormControlLabel
+            control={
+              <Checkbox
+                {...register("enabled", {})}
+                defaultChecked={!characterConfig.disabled}
+              />
+            }
+            label="この画数の文字を利用する"
+          />
+          <FormHelperText>
+            チェックを外すと「{characterConfig.character.value}」({strokeCount}
+            画)の全ての文字形状は文章生成時に利用されなくなります。
+          </FormHelperText>
+        </FormGroup>
         <Button
           variant="contained"
           disabled={updateCharacterConfigLoading}
