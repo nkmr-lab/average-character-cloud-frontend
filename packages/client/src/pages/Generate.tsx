@@ -67,7 +67,7 @@ const debouncedColorState = atom({
 
 const debouncedFontSizeState = atom({
   key: "Generate/debouncedFontSizeState",
-  default: 32,
+  default: 48,
 });
 
 const debouncedTopState = atom({
@@ -382,6 +382,89 @@ export default function Generate(): JSX.Element {
           style={{ width: "100%" }}
         >
           <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenFontSize(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              文字サイズ: {fontSize}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenLetterSpace(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              文字間: {letterSpace}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenLineSpace(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              行間: {lineSpace}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenTop(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              {topText}: {top}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenLeft(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              {leftText}: {left}px
+            </Button>
+          </Grid>
+
+          <Grid item xs={2}>
+            <Typography>字の太さ: {weight.toFixed(1)}</Typography>
+            <Slider
+              min={0.1}
+              max={10}
+              step={0.1}
+              value={weight}
+              onChange={(_e, value) => {
+                setWeight(value as number);
+              }}
+            ></Slider>
+          </Grid>
+          <Grid item xs={2}>
             <div>
               <label htmlFor={inputFileId}>
                 <input
@@ -506,88 +589,6 @@ export default function Generate(): JSX.Element {
               <ToggleButton value="horizontal">横書き</ToggleButton>
               <ToggleButton value="vertical">縦書き</ToggleButton>
             </ToggleButtonGroup>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenTop(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              {topText}: {top}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLeft(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              {leftText}: {left}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenFontSize(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              文字サイズ: {fontSize}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLetterSpace(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              文字間: {letterSpace}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLineSpace(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              行間: {lineSpace}px
-            </Button>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography>字の太さ: {weight.toFixed(1)}</Typography>
-            <Slider
-              min={0.1}
-              max={10}
-              step={0.1}
-              value={weight}
-              onChange={(_e, value) => {
-                setWeight(value as number);
-              }}
-            ></Slider>
           </Grid>
         </Grid>
       </Stack>
