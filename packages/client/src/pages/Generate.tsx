@@ -14,7 +14,6 @@ import {
   ListItemText,
   Popover,
   Drawer,
-  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
 } from "@mui/material";
@@ -22,7 +21,6 @@ import AverageText from "../components/AverageText";
 import { ErrorBoundary } from "react-error-boundary";
 import { useDebounce } from "react-use";
 import XorShift from "../domains/XorShift";
-import * as icons from "@mui/icons-material";
 import * as FigureRendererTypes from "../domains/FigureRendererTypes";
 import { HexColorPicker } from "react-colorful";
 
@@ -33,11 +31,11 @@ import { Box } from "@mui/system";
 import {
   atom,
   type RecoilValue,
-  selector,
   useRecoilCallback,
   useRecoilState_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue,
+  constSelector,
 } from "recoil";
 import {
   averageTextStateFamily,
@@ -45,34 +43,21 @@ import {
   figureRecordsQueryFamily,
   usingCharactersStateFamily,
 } from "../store/averageText";
-import { useSubscribeToInvalidationState } from "react-relay";
+import {
+  graphql,
+  useLazyLoadQuery,
+  useSubscribeToInvalidationState,
+} from "react-relay";
+import { Generate_rootQuery } from "./__generated__/Generate_rootQuery.graphql";
 
 const debouncedContentState = atom({
   key: "Generate/debouncedContentState",
   default: "",
 });
 
-const debouncedRandomLevelState = atom({
-  key: "Generate/debouncedRandomLevelState",
-  default: 0.5,
-});
-
 const seedsState = atom({
   key: "Generate/seedsState",
   default: new Map<number, number>(),
-});
-
-const debouncedSharedProportionState = atom({
-  key: "Generate/debouncedSharedProportionState",
-  default: 0.5,
-});
-
-const enableUseSharedFigureRecordsState = selector({
-  key: "Generate/enableUseSharedFigureRecordsState",
-  get: ({ get }) => {
-    const sharedProportion = get(debouncedSharedProportionState);
-    return sharedProportion > 0;
-  },
 });
 
 const debouncedColorState = atom({
@@ -125,6 +110,26 @@ const modeState = atom<"horizontal" | "vertical">({
 });
 
 export default function Generate(): JSX.Element {
+  const { userConfig } = useLazyLoadQuery<Generate_rootQuery>(
+    graphql`
+      query Generate_rootQuery {
+        userConfig {
+          randomLevel
+          sharedProportion
+        }
+      }
+    `,
+    { fetchPolicy: "store-and-network" }
+  );
+
+  const randomLevelState = constSelector(userConfig.randomLevel / 100);
+  const sharedProportionState = constSelector(
+    userConfig.sharedProportion / 100
+  );
+  const enableUseSharedFigureRecordsState = constSelector(
+    userConfig.sharedProportion > 0
+  );
+
   const [isPending, startTransition] = React.useTransition();
   const [debouncedContent, setDebouncedContent] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedContentState);
@@ -137,34 +142,6 @@ export default function Generate(): JSX.Element {
     },
     500,
     [content]
-  );
-  const [debouncedRandomLevel, setDebouncedRandomLevel] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedRandomLevelState);
-  const [randomLevel, setRandomLevel] = React.useState(debouncedRandomLevel);
-
-  const [isReadyRandomLevel] = useDebounce(
-    () => {
-      startTransition(() => {
-        setDebouncedRandomLevel(randomLevel);
-      });
-    },
-    500,
-    [randomLevel]
-  );
-
-  const [debouncedSharedProportion, setDebouncedSharedProportion] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedSharedProportionState);
-  const [sharedProportion, setSharedProportion] = React.useState(
-    debouncedSharedProportion
-  );
-  const [isReadySharedProportion] = useDebounce(
-    () => {
-      startTransition(() => {
-        setDebouncedSharedProportion(sharedProportion);
-      });
-    },
-    500,
-    [sharedProportion]
   );
 
   const [debouncedColor, setDebouncedColor] =
@@ -273,8 +250,6 @@ export default function Generate(): JSX.Element {
 
   const isReady =
     isReadyContent() &&
-    isReadyRandomLevel() &&
-    isReadySharedProportion() &&
     isReadyColor() &&
     isReadyFontSize() &&
     isReadyLeft() &&
@@ -292,10 +267,10 @@ export default function Generate(): JSX.Element {
 
   const averageTextState = averageTextStateFamily({
     contentState: debouncedContentState,
-    randomLevelState: debouncedRandomLevelState,
+    randomLevelState,
     seedsState: seedsState,
-    sharedProportionState: debouncedSharedProportionState,
-    enableUseSharedFigureRecordsState: enableUseSharedFigureRecordsState,
+    sharedProportionState,
+    enableUseSharedFigureRecordsState,
     colorState: debouncedColorState,
     fontSizeState: debouncedFontSizeState,
     topState: debouncedTopState,
@@ -332,6 +307,9 @@ export default function Generate(): JSX.Element {
       <Stack spacing={2}>
         <Suspense>
           <SubscribeToInvalidationCharacters
+            enableUseSharedFigureRecordsState={
+              enableUseSharedFigureRecordsState
+            }
             startTransition={startTransition}
           />
         </Suspense>
@@ -611,53 +589,6 @@ export default function Generate(): JSX.Element {
               }}
             ></Slider>
           </Grid>
-          <Grid item xs={4}>
-            <Typography>
-              他人の字の割合: {(sharedProportion * 100).toFixed(0)}%
-              <Tooltip title="他人が書いた字をどのくらいの割合で混ぜるかを指定できます。大きいほど自分の字らしさが消えますが字の形のバリエーションが増えます。">
-                <icons.HelpOutline
-                  style={{
-                    fontSize: 18,
-                    verticalAlign: "middle",
-                    marginLeft: 4,
-                  }}
-                />
-              </Tooltip>
-            </Typography>
-
-            <Slider
-              min={0}
-              max={1.0}
-              step={0.01}
-              value={sharedProportion}
-              onChange={(_e, value) => {
-                setSharedProportion(value as number);
-              }}
-            ></Slider>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography>
-              ゆらぎ: {randomLevel}
-              <Tooltip title="小さいほど綺麗な字に、大きいほど個性的な字になります。">
-                <icons.HelpOutline
-                  style={{
-                    fontSize: 18,
-                    verticalAlign: "middle",
-                    marginLeft: 4,
-                  }}
-                />
-              </Tooltip>
-            </Typography>
-            <Slider
-              min={0}
-              max={1.0}
-              step={0.01}
-              value={randomLevel}
-              onChange={(_e, value) => {
-                setRandomLevel(value as number);
-              }}
-            ></Slider>
-          </Grid>
         </Grid>
       </Stack>
       <Drawer
@@ -802,8 +733,10 @@ function UsingCharacters({
 
 function SubscribeToInvalidationCharacters({
   startTransition,
+  enableUseSharedFigureRecordsState,
 }: {
   startTransition: (callback: () => void) => void;
+  enableUseSharedFigureRecordsState: RecoilValue<boolean>;
 }) {
   const figureRecordsQuery = figureRecordsQueryFamily({
     contentState: debouncedContentState,

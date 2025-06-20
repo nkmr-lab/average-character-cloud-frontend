@@ -60,11 +60,6 @@ const seedStateFamily = atomFamily({
   default: (_: { character: string }) => 0,
 });
 
-const debouncedRandomLevelStateFamily = atomFamily({
-  key: "ListFigureRecords/debouncedRandomLevelStateFamily",
-  default: (_: { character: string }) => 0.9,
-});
-
 const colorState = constSelector<string>("#000000");
 
 const sizeState = constSelector<number>(256);
@@ -79,30 +74,34 @@ export default function ListFigureRecords(): JSX.Element {
   const strokeCount = Number(params.strokeCount!);
   const [fetchKey, setFetchKey] = React.useState(0);
   const [isPending, startTransition] = React.useTransition();
-  const { characters } = useLazyLoadQuery<ListFigureRecords_rootQuery>(
-    graphql`
-      query ListFigureRecords_rootQuery(
-        $character: CharacterValue!
-        $strokeCount: Int!
-        $cursor: String
-        $count: Int!
-      ) {
-        characters(values: [$character]) {
-          id
-          characterConfig(strokeCount: $strokeCount) {
-            ...ListFigureRecords_figureRecords
-              @arguments(cursor: $cursor, count: $count)
+  const { characters, userConfig } =
+    useLazyLoadQuery<ListFigureRecords_rootQuery>(
+      graphql`
+        query ListFigureRecords_rootQuery(
+          $character: CharacterValue!
+          $strokeCount: Int!
+          $cursor: String
+          $count: Int!
+        ) {
+          characters(values: [$character]) {
+            id
+            characterConfig(strokeCount: $strokeCount) {
+              ...ListFigureRecords_figureRecords
+                @arguments(cursor: $cursor, count: $count)
+            }
+          }
+          userConfig {
+            randomLevel
           }
         }
-      }
-    `,
-    {
-      count,
-      character: characterValue,
-      strokeCount,
-    },
-    { fetchPolicy: "store-and-network", fetchKey }
-  );
+      `,
+      {
+        count,
+        character: characterValue,
+        strokeCount,
+      },
+      { fetchPolicy: "store-and-network", fetchKey }
+    );
   useSubscribeToInvalidationState(
     characters.map(({ id }) => id),
     () => {
@@ -127,24 +126,6 @@ export default function ListFigureRecords(): JSX.Element {
         }
       `
     );
-  const debouncedRandomLevelState = debouncedRandomLevelStateFamily({
-    character: characterValue,
-  });
-  const [debouncedRandomLevel, setDebouncedRandomLevel] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedRandomLevelState);
-  const [randomLevel, setRandomLevel] = React.useState(debouncedRandomLevel);
-
-  const [isReadyRandomLevel] = useDebounce(
-    () => {
-      startTransition(() => {
-        setDebouncedRandomLevel(randomLevel);
-      });
-    },
-    500,
-    [randomLevel]
-  );
-
-  const isReady = isReadyRandomLevel();
 
   if (characters.length === 0) {
     throw new Error(`No character found: ${characterValue}`);
@@ -187,6 +168,7 @@ export default function ListFigureRecords(): JSX.Element {
   const [_seed, setSeed] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(seedState);
   const background = useBackground();
+  const randomLevelState = constSelector(userConfig.randomLevel / 100);
 
   const averageFigure = useRecoilValue(
     averageFigureStateFamily({
@@ -196,7 +178,7 @@ export default function ListFigureRecords(): JSX.Element {
       sharedFigureRecordsState: constSelector(null),
       character: characterValue,
       seedState,
-      randomLevelState: debouncedRandomLevelState,
+      randomLevelState,
       colorState,
       sizeState,
       sharedProportionState,
@@ -226,16 +208,6 @@ export default function ListFigureRecords(): JSX.Element {
       </Button>
       <Paper elevation={3} sx={{ m: 1, p: 1 }}>
         <div>{pagination.data.figureRecords.edges.length}件の平均文字</div>
-        <Typography>ゆらぎ</Typography>
-        <Slider
-          min={0}
-          max={1.0}
-          step={0.01}
-          value={randomLevel}
-          onChange={(_e, value) => {
-            setRandomLevel(value as number);
-          }}
-        />
         <Suspense fallback={<CircularProgress />}>
           <div style={{ contain: "strict", width: 256, height: 256 }}>
             {pagination.data.figureRecords.edges.map(({ node }) => (
@@ -266,7 +238,7 @@ export default function ListFigureRecords(): JSX.Element {
                 }}
               />
             </div>
-            {(!isReady || isPending) && <CircularProgress />}
+            {isPending && <CircularProgress />}
           </div>
         </Suspense>
       </Paper>
