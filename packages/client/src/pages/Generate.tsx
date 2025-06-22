@@ -16,6 +16,9 @@ import {
   Drawer,
   ToggleButton,
   ToggleButtonGroup,
+  Dialog,
+  DialogContent,
+  Divider,
 } from "@mui/material";
 import AverageText from "../components/AverageText";
 import { ErrorBoundary } from "react-error-boundary";
@@ -36,6 +39,7 @@ import {
   useRecoilValue_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue,
   constSelector,
+  selector,
 } from "recoil";
 import {
   averageTextStateFamily,
@@ -46,9 +50,18 @@ import {
 import {
   graphql,
   useLazyLoadQuery,
+  useMutation,
   useSubscribeToInvalidationState,
 } from "react-relay";
 import { Generate_rootQuery } from "./__generated__/Generate_rootQuery.graphql";
+import ListGenerateTemplates from "../components/ListGenerateTemplates";
+import * as hexColor from "../utils/hexColor";
+import { Generate_createFileMutation } from "./__generated__/Generate_createFileMutation.graphql";
+import { Generate_verifyFileMutation } from "./__generated__/Generate_verifyFileMutation.graphql";
+import { Generate_createGenerateTemplateMutation } from "./__generated__/Generate_createGenerateTemplateMutation.graphql";
+import { Generate_updateGenerateTemplateMutation } from "./__generated__/Generate_updateGenerateTemplateMutation.graphql";
+import { useSnackbar } from "notistack";
+import { formatError } from "../domains/error";
 
 const debouncedContentState = atom({
   key: "Generate/debouncedContentState",
@@ -95,13 +108,57 @@ const debouncedWeightState = atom({
   default: 1,
 });
 
-const backgroundImageState = atom<{
+const backgroundImageUrlState = atom<string | null>({
+  key: "Generate/backgroundImageUrlState",
+  default: null,
+});
+
+const generateTemplateIdState = atom<string | null>({
+  key: "Generate/generateTemplateIdState",
+  default: null,
+});
+
+const backgroundImageState = selector<{
   url: string;
   width: number;
   height: number;
 } | null>({
   key: "Generate/backgroundImageState",
-  default: null,
+  get: ({ get }) => {
+    const backgroundImageUrl = get(backgroundImageUrlState);
+    if (backgroundImageUrl === null) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1000;
+        const maxHeight = 1000;
+        const ratio = img.width / img.height;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          width = maxWidth;
+          height = width / ratio;
+        }
+        if (height > maxHeight) {
+          height = maxHeight;
+          width = height * ratio;
+        }
+
+        resolve({
+          url: backgroundImageUrl,
+          width,
+          height,
+        });
+      };
+      img.onerror = (error) => {
+        reject(error);
+      };
+      img.src = backgroundImageUrl;
+    });
+  },
 });
 
 const modeState = atom<"horizontal" | "vertical">({
@@ -121,6 +178,76 @@ export default function Generate(): JSX.Element {
     `,
     { fetchPolicy: "store-and-network" }
   );
+
+  const [createFile, _createFileLoading] =
+    useMutation<Generate_createFileMutation>(
+      graphql`
+        mutation Generate_createFileMutation($input: CreateFileInput!) {
+          createFile(input: $input) {
+            file {
+              fileId
+              uploadUrl
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
+
+  const [verifyFile, _verifyFileLoading] =
+    useMutation<Generate_verifyFileMutation>(
+      graphql`
+        mutation Generate_verifyFileMutation($input: VerifyFileInput!) {
+          verifyFile(input: $input) {
+            file {
+              __typename
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
+
+  const [createGenerateTemplate, _createGenerateTemplateLoading] =
+    useMutation<Generate_createGenerateTemplateMutation>(
+      graphql`
+        mutation Generate_createGenerateTemplateMutation(
+          $input: CreateGenerateTemplateInput!
+        ) {
+          createGenerateTemplate(input: $input) {
+            generateTemplate {
+              __typename
+              generateTemplateId
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
+
+  const [updateGenerateTemplate, _updateGenerateTemplateLoading] =
+    useMutation<Generate_updateGenerateTemplateMutation>(
+      graphql`
+        mutation Generate_updateGenerateTemplateMutation(
+          $input: UpdateGenerateTemplateInput!
+        ) {
+          updateGenerateTemplate(input: $input) {
+            generateTemplate {
+              __typename
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
 
   const randomLevelState = constSelector(userConfig.randomLevel / 100);
   const sharedProportionState = constSelector(
@@ -186,6 +313,9 @@ export default function Generate(): JSX.Element {
   );
   const [isOpenLeft, setIsOpenLeft] = React.useState(false);
 
+  const [isOpenGenerateTemplates, setIsOpenGenerateTemplates] =
+    React.useState(false);
+
   const [debouncedTop, setDebouncedTop] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedTopState);
 
@@ -243,8 +373,11 @@ export default function Generate(): JSX.Element {
     [weight]
   );
 
-  const [backgroundImage, setBackgroundImage] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(backgroundImageState);
+  const [backgroundImageUrl, setBackgroundImageUrl] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(backgroundImageUrlState);
+
+  const [generateTemplateId, setGenerateTemplateId] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(generateTemplateIdState);
 
   const [mode, setMode] = useRecoilState_TRANSITION_SUPPORT_UNSTABLE(modeState);
 
@@ -301,6 +434,9 @@ export default function Generate(): JSX.Element {
 
   const topText = `${mode === "horizontal" ? "上" : "右"}の余白`;
   const leftText = `${mode === "horizontal" ? "左" : "上"}の余白`;
+
+  const { enqueueSnackbar } = useSnackbar();
+  const selectedBackgroundImageFile = React.useRef<File | null>(null);
 
   return (
     <div>
@@ -374,7 +510,6 @@ export default function Generate(): JSX.Element {
         >
           画像としてダウンロード
         </Button>
-
         <Grid
           container
           spacing={1}
@@ -468,10 +603,9 @@ export default function Generate(): JSX.Element {
             <div>
               <label htmlFor={inputFileId}>
                 <input
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
                   hidden
                   id={inputFileId}
-                  multiple
                   type="file"
                   onChange={(evt) => {
                     const files = evt.target.files;
@@ -479,35 +613,16 @@ export default function Generate(): JSX.Element {
                       return;
                     }
                     const file = files[0];
+                    selectedBackgroundImageFile.current = file;
                     const blobUrl = URL.createObjectURL(file);
-                    const img = new Image();
-                    img.onload = () => {
-                      const maxWidth = 1000;
-                      const maxHeight = 1000;
-                      const ratio = img.width / img.height;
-                      let width = img.width;
-                      let height = img.height;
-                      if (width > maxWidth) {
-                        width = maxWidth;
-                        height = width / ratio;
+                    startTransition(() => {
+                      const prevBlobUrl = backgroundImageUrl;
+                      setBackgroundImageUrl(blobUrl);
+                      setGenerateTemplateId(null);
+                      if (prevBlobUrl !== null) {
+                        URL.revokeObjectURL(prevBlobUrl);
                       }
-                      if (height > maxHeight) {
-                        height = maxHeight;
-                        width = height * ratio;
-                      }
-                      startTransition(() => {
-                        const prevBlobUrl = backgroundImage?.url;
-                        setBackgroundImage({
-                          url: blobUrl,
-                          width,
-                          height,
-                        });
-                        if (prevBlobUrl !== undefined) {
-                          URL.revokeObjectURL(prevBlobUrl);
-                        }
-                      });
-                    };
-                    img.src = blobUrl;
+                    });
                   }}
                 />
                 <Button variant="outlined" component="span" fullWidth>
@@ -517,7 +632,7 @@ export default function Generate(): JSX.Element {
                       marginLeft: 4,
                     }}
                   >
-                    {backgroundImage !== null ? (
+                    {backgroundImageUrl !== null ? (
                       <img
                         style={{
                           display: "inline-block",
@@ -525,7 +640,7 @@ export default function Generate(): JSX.Element {
                           verticalAlign: "middle",
                           border: "1px solid #333",
                         }}
-                        src={backgroundImage?.url}
+                        src={backgroundImageUrl}
                         width={16}
                         height={16}
                       />
@@ -589,6 +704,208 @@ export default function Generate(): JSX.Element {
               <ToggleButton value="horizontal">横書き</ToggleButton>
               <ToggleButton value="vertical">縦書き</ToggleButton>
             </ToggleButtonGroup>
+          </Grid>
+        </Grid>
+        <Divider></Divider>
+
+        <Grid
+          container
+          spacing={1}
+          columns={{ xs: 4, sm: 8, md: 12 }}
+          style={{ width: "100%" }}
+        >
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                setIsOpenGenerateTemplates(true);
+              }}
+            >
+              テンプレート一覧
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={backgroundImageUrl === null}
+              onClick={() => {
+                if (backgroundImageUrl === null) {
+                  return;
+                }
+
+                if (generateTemplateId === null) {
+                  const file = selectedBackgroundImageFile.current;
+                  if (file === null) {
+                    // unreachable
+                    enqueueSnackbar("アップロードに失敗しました", {
+                      variant: "error",
+                    });
+                    return;
+                  }
+                  void (async () => {
+                    try {
+                      const { fileId, uploadUrl } = await new Promise<{
+                        fileId: string;
+                        uploadUrl: string;
+                      }>((resolve, reject) => {
+                        createFile({
+                          variables: {
+                            input: {
+                              size: file.size,
+                              mimeType: file.type,
+                            },
+                          },
+                          onCompleted: ({ createFile }) => {
+                            if (
+                              createFile.file !== null &&
+                              createFile.errors === null
+                            ) {
+                              resolve(createFile.file);
+                            } else {
+                              for (const error of createFile.errors ?? []) {
+                                enqueueSnackbar(error.message, {
+                                  variant: "error",
+                                });
+                              }
+                              reject(new Error());
+                            }
+                          },
+                          onError: (error) => {
+                            enqueueSnackbar(formatError(error), {
+                              variant: "error",
+                            });
+                            reject(error);
+                          },
+                        });
+                      });
+
+                      const response = await fetch(uploadUrl, {
+                        method: "PUT",
+                        body: file,
+                      });
+
+                      if (!response.ok) {
+                        enqueueSnackbar("アップロードに失敗しました", {
+                          variant: "error",
+                        });
+                        return;
+                      }
+
+                      await new Promise<void>((resolve, reject) => {
+                        verifyFile({
+                          variables: {
+                            input: {
+                              id: fileId,
+                            },
+                          },
+                          onCompleted: ({ verifyFile }) => {
+                            if (verifyFile.file !== null) {
+                              resolve();
+                            } else {
+                              enqueueSnackbar("アップロードに失敗しました", {
+                                variant: "error",
+                              });
+                              reject(new Error());
+                            }
+                          },
+                          onError: (error) => {
+                            enqueueSnackbar(formatError(error), {
+                              variant: "error",
+                            });
+                            reject(error);
+                          },
+                        });
+                      });
+
+                      createGenerateTemplate({
+                        variables: {
+                          input: {
+                            backgroundImageFileId: fileId,
+                            fontColor: hexColor.hexToNumber(color),
+                            fontSize,
+                            fontWeight: (weight * 10) | 0,
+                            letterSpacing: letterSpace,
+                            lineSpacing: lineSpace,
+                            marginBlockStart: top,
+                            marginInlineStart: left,
+                            writingMode:
+                              mode === "horizontal" ? "HORIZONTAL" : "VERTICAL",
+                          },
+                        },
+                        onCompleted: ({ createGenerateTemplate }) => {
+                          if (
+                            createGenerateTemplate.generateTemplate !== null
+                          ) {
+                            enqueueSnackbar("テンプレートを保存しました", {
+                              variant: "success",
+                            });
+                            setGenerateTemplateId(
+                              createGenerateTemplate.generateTemplate
+                                .generateTemplateId
+                            );
+                          } else {
+                            for (const error of createGenerateTemplate.errors ??
+                              []) {
+                              enqueueSnackbar(error.message, {
+                                variant: "error",
+                              });
+                            }
+                          }
+                        },
+                        onError: (error) => {
+                          enqueueSnackbar(formatError(error), {
+                            variant: "error",
+                          });
+                        },
+                      });
+                    } catch {
+                      // eslint-disable-next-line no-empty
+                    }
+                  })();
+                } else {
+                  updateGenerateTemplate({
+                    variables: {
+                      input: {
+                        generateTemplateId,
+                        fontColor: hexColor.hexToNumber(color),
+                        fontSize,
+                        fontWeight: (weight * 10) | 0,
+                        letterSpacing: letterSpace,
+                        lineSpacing: lineSpace,
+                        marginBlockStart: top,
+                        marginInlineStart: left,
+                        writingMode:
+                          mode === "horizontal" ? "HORIZONTAL" : "VERTICAL",
+                      },
+                    },
+                    onCompleted: ({ updateGenerateTemplate }) => {
+                      if (updateGenerateTemplate.errors === null) {
+                        enqueueSnackbar("テンプレートを更新しました", {
+                          variant: "success",
+                        });
+                      } else {
+                        for (const error of updateGenerateTemplate.errors) {
+                          enqueueSnackbar(error.message, {
+                            variant: "error",
+                          });
+                        }
+                      }
+                    },
+                    onError: (error) => {
+                      enqueueSnackbar(formatError(error), {
+                        variant: "error",
+                      });
+                    },
+                  });
+                }
+              }}
+            >
+              {generateTemplateId !== null
+                ? "テンプレートを更新"
+                : "テンプレートとして保存"}
+            </Button>
           </Grid>
         </Grid>
       </Stack>
@@ -686,6 +1003,43 @@ export default function Generate(): JSX.Element {
           ></Slider>
         </Box>
       </Drawer>
+      <Dialog
+        open={isOpenGenerateTemplates}
+        onClose={() => {
+          setIsOpenGenerateTemplates(false);
+        }}
+      >
+        <DialogContent>
+          <Suspense fallback={<CircularProgress />}>
+            <ListGenerateTemplates
+              onClick={(generateTemplate) => {
+                startTransition(() => {
+                  setBackgroundImageUrl(generateTemplate.backgroundImage.url);
+                  setGenerateTemplateId(generateTemplate.id);
+                  setDebouncedColor(
+                    hexColor.numberToHex(generateTemplate.fontColor)
+                  );
+                  setDebouncedFontSize(generateTemplate.fontSize);
+                  setDebouncedTop(generateTemplate.marginBlockStart);
+                  setDebouncedLeft(generateTemplate.marginInlineStart);
+                  setDebouncedLineSpace(generateTemplate.lineSpacing);
+                  setDebouncedLetterSpace(generateTemplate.letterSpacing);
+                  setDebouncedWeight(generateTemplate.fontWeight / 10);
+                  setMode(generateTemplate.writingMode);
+                });
+                setIsOpenGenerateTemplates(false);
+              }}
+              onDelete={(deletedId) => {
+                if (generateTemplateId === deletedId) {
+                  startTransition(() => {
+                    setGenerateTemplateId(null);
+                  });
+                }
+              }}
+            ></ListGenerateTemplates>
+          </Suspense>
+        </DialogContent>
+      </Dialog>
       <Typography variant="h6">使っている文字</Typography>
       <Suspense fallback={<CircularProgress />}>
         <UsingCharacters usingCharactersState={usingCharactersState} />

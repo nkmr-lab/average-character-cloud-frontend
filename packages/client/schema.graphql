@@ -1,3 +1,8 @@
+type DeleteGenerateTemplatePayload {
+  id: ID!
+  errors: [Error!]
+}
+
 type FigureRecord implements Node {
   id: ID!
   figureRecordId: Ulid!
@@ -6,49 +11,45 @@ type FigureRecord implements Node {
   createdAt: DateTimeUtc!
 }
 
+type VerifyFilePayload {
+  file: File
+  errors: [Error!]
+}
+
 enum UserType {
   MYSELF
   OTHER
 }
 
-type Mutation {
-  createFigureRecord(input: CreateFigureRecordInput!): CreateFigureRecordPayload!
-  updateCharacterConfig(input: UpdateCharacterConfigInput!): UpdateCharacterConfigPayload!
-  updateFigureRecord(input: UpdateFigureRecordInput!): UpdateFigureRecordPayload!
-  updateUserConfig(input: UpdateUserConfigInput!): UpdateUserConfigPayload!
+type UpdateGenerateTemplatePayload {
+  generateTemplate: GenerateTemplate
+  errors: [Error!]
 }
 
-"""DateTime"""
-scalar DateTimeUtc
+type CreateGenerateTemplatePayload {
+  generateTemplate: GenerateTemplate
+  errors: [Error!]
+}
 
-type CharacterConfigSeedConnection {
-  pageInfo: PageInfo!
-  edges: [CharacterConfigSeedEdge!]!
+type GenerateTemplate implements Node {
+  id: ID!
+  generateTemplateId: Ulid!
+  backgroundImageFile: File!
+  fontColor: Int!
+  writingMode: WritingMode!
+  marginBlockStart: Int!
+  marginInlineStart: Int!
+  lineSpacing: Int!
+  letterSpacing: Int!
+  fontSize: Int!
+  fontWeight: Int!
+  createdAt: DateTimeUtc!
+  updatedAt: DateTimeUtc!
 }
 
 type UpdateCharacterConfigPayload {
   characterConfig: CharacterConfig
   errors: [Error!]
-}
-
-type Query {
-  query: Query!
-  loginUser: LoginUser
-  userConfig: UserConfig!
-  node(id: ID!): Node
-  characters(values: [CharacterValue!]!): [Character!]!
-  characterConfigs(first: Int, after: String, last: Int, before: String): CharacterConfigConnection!
-  characterConfigSeeds(first: Int, after: String, last: Int, before: String, includeExistCharacterConfig: Boolean!): CharacterConfigSeedConnection!
-}
-
-type CharacterConfig implements Node {
-  id: ID!
-  character: Character!
-  strokeCount: Int!
-  ratio: Int!
-  updatedAt: DateTimeUtc
-  disabled: Boolean!
-  figureRecords(ids: [Ulid!], first: Int, after: String, last: Int, before: String, userType: UserType): FigureRecordConnection!
 }
 
 type FigureRecordEdge {
@@ -63,16 +64,144 @@ type CharacterConfigSeed implements Node {
   updatedAt: DateTimeUtc!
 }
 
-type CharacterConfigEdge {
-  cursor: String!
-  node: CharacterConfig!
+input UpdateFigureRecordInput {
+  id: Ulid!
+  disabled: Boolean
 }
 
 scalar CharacterValue
 
-input UpdateFigureRecordInput {
+type UpdateUserConfigPayload {
+  userConfig: UserConfig
+  errors: [Error!]
+}
+
+scalar Figure
+
+input VerifyFileInput {
   id: Ulid!
+}
+
+input UpdateCharacterConfigInput {
+  character: CharacterValue!
+  strokeCount: Int!
+  ratio: Int
   disabled: Boolean
+}
+
+scalar Ulid
+
+type CreateFigureRecordPayload {
+  figureRecord: FigureRecord
+  errors: [Error!]
+}
+
+type File implements Node {
+  id: ID!
+  fileId: Ulid!
+  mimeType: String!
+  size: Int!
+  verified: Boolean!
+  createdAt: DateTimeUtc!
+  updatedAt: DateTimeUtc!
+  uploadUrl: String!
+  downloadUrl: String!
+}
+
+interface Node {
+  id: ID!
+}
+
+input UpdateGenerateTemplateInput {
+  generateTemplateId: Ulid!
+  backgroundImageFileId: Ulid
+  fontColor: Int
+  writingMode: WritingMode
+  marginBlockStart: Int
+  marginInlineStart: Int
+  lineSpacing: Int
+  letterSpacing: Int
+  fontSize: Int
+  fontWeight: Int
+}
+
+type UserConfig implements Node {
+  id: ID!
+  allowSharingCharacterConfigs: Boolean!
+  allowSharingFigureRecords: Boolean!
+  randomLevel: Int!
+  sharedProportion: Int!
+  updatedAt: DateTimeUtc
+}
+
+type CreateFilePayload {
+  file: File
+  errors: [Error!]
+}
+
+type LoginUser {
+  userId: String!
+}
+
+type GenerateTemplateConnection {
+  pageInfo: PageInfo!
+  edges: [GenerateTemplateEdge!]!
+}
+
+input CreateFileInput {
+  mimeType: String!
+  size: Int!
+}
+
+type Mutation {
+  createFigureRecord(input: CreateFigureRecordInput!): CreateFigureRecordPayload!
+  updateCharacterConfig(input: UpdateCharacterConfigInput!): UpdateCharacterConfigPayload!
+  updateFigureRecord(input: UpdateFigureRecordInput!): UpdateFigureRecordPayload!
+  updateUserConfig(input: UpdateUserConfigInput!): UpdateUserConfigPayload!
+  createFile(input: CreateFileInput!): CreateFilePayload!
+  verifyFile(input: VerifyFileInput!): VerifyFilePayload!
+  createGenerateTemplate(input: CreateGenerateTemplateInput!): CreateGenerateTemplatePayload!
+  deleteGenerateTemplate(input: DeleteGenerateTemplateInput!): DeleteGenerateTemplatePayload!
+  updateGenerateTemplate(input: UpdateGenerateTemplateInput!): UpdateGenerateTemplatePayload!
+}
+
+"""DateTime"""
+scalar DateTimeUtc
+
+type CharacterConfigSeedConnection {
+  pageInfo: PageInfo!
+  edges: [CharacterConfigSeedEdge!]!
+}
+
+type GenerateTemplateEdge {
+  cursor: String!
+  node: GenerateTemplate!
+}
+
+type Query {
+  query: Query!
+  loginUser: LoginUser
+  userConfig: UserConfig!
+  node(id: ID!): Node
+  characters(values: [CharacterValue!]!): [Character!]!
+  characterConfigs(first: Int, after: String, last: Int, before: String): CharacterConfigConnection!
+  characterConfigSeeds(first: Int, after: String, last: Int, before: String, includeExistCharacterConfig: Boolean!): CharacterConfigSeedConnection!
+  generateTemplates(first: Int, after: String, last: Int, before: String): GenerateTemplateConnection!
+}
+
+type CharacterConfig implements Node {
+  id: ID!
+  character: Character!
+  strokeCount: Int!
+  ratio: Int!
+  updatedAt: DateTimeUtc
+  disabled: Boolean!
+  figureRecords(ids: [Ulid!], first: Int, after: String, last: Int, before: String, userType: UserType): FigureRecordConnection!
+}
+
+type CharacterConfigEdge {
+  cursor: String!
+  node: CharacterConfig!
 }
 
 type FigureRecordConnection {
@@ -94,13 +223,6 @@ type CharacterConfigConnection {
   edges: [CharacterConfigEdge!]!
 }
 
-type UpdateUserConfigPayload {
-  userConfig: UserConfig
-  errors: [Error!]
-}
-
-scalar Figure
-
 type Error {
   message: String!
 }
@@ -110,27 +232,14 @@ type UpdateFigureRecordPayload {
   errors: [Error!]
 }
 
-input UpdateCharacterConfigInput {
-  character: CharacterValue!
-  strokeCount: Int!
-  ratio: Int
-  disabled: Boolean
-}
-
 input CreateFigureRecordInput {
   character: CharacterValue!
   figure: Figure!
 }
 
-scalar Ulid
-
-type CreateFigureRecordPayload {
-  figureRecord: FigureRecord
-  errors: [Error!]
-}
-
-interface Node {
-  id: ID!
+enum WritingMode {
+  HORIZONTAL
+  VERTICAL
 }
 
 type CharacterConfigSeedEdge {
@@ -138,13 +247,8 @@ type CharacterConfigSeedEdge {
   node: CharacterConfigSeed!
 }
 
-type UserConfig implements Node {
-  id: ID!
-  allowSharingCharacterConfigs: Boolean!
-  allowSharingFigureRecords: Boolean!
-  randomLevel: Int!
-  sharedProportion: Int!
-  updatedAt: DateTimeUtc
+input DeleteGenerateTemplateInput {
+  generateTemplateId: Ulid!
 }
 
 type PageInfo {
@@ -161,6 +265,14 @@ input UpdateUserConfigInput {
   sharedProportion: Int
 }
 
-type LoginUser {
-  userId: String!
+input CreateGenerateTemplateInput {
+  backgroundImageFileId: Ulid!
+  fontColor: Int!
+  writingMode: WritingMode!
+  marginBlockStart: Int!
+  marginInlineStart: Int!
+  lineSpacing: Int!
+  letterSpacing: Int!
+  fontSize: Int!
+  fontWeight: Int!
 }
