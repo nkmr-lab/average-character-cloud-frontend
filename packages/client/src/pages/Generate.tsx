@@ -1016,15 +1016,13 @@ export default function Generate(): JSX.Element {
                 startTransition(() => {
                   setBackgroundImageUrl(generateTemplate.backgroundImage.url);
                   setGenerateTemplateId(generateTemplate.id);
-                  setDebouncedColor(
-                    hexColor.numberToHex(generateTemplate.fontColor)
-                  );
-                  setDebouncedFontSize(generateTemplate.fontSize);
-                  setDebouncedTop(generateTemplate.marginBlockStart);
-                  setDebouncedLeft(generateTemplate.marginInlineStart);
-                  setDebouncedLineSpace(generateTemplate.lineSpacing);
-                  setDebouncedLetterSpace(generateTemplate.letterSpacing);
-                  setDebouncedWeight(generateTemplate.fontWeight / 10);
+                  setColor(hexColor.numberToHex(generateTemplate.fontColor));
+                  setFontSize(generateTemplate.fontSize);
+                  setTop(generateTemplate.marginBlockStart);
+                  setLeft(generateTemplate.marginInlineStart);
+                  setLineSpace(generateTemplate.lineSpacing);
+                  setLetterSpace(generateTemplate.letterSpacing);
+                  setWeight(generateTemplate.fontWeight / 10);
                   setMode(generateTemplate.writingMode);
                 });
                 setIsOpenGenerateTemplates(false);
