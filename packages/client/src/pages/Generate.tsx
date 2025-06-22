@@ -19,6 +19,10 @@ import {
   Dialog,
   DialogContent,
   Divider,
+  DialogTitle,
+  Paper,
+  IconButton,
+  Fade,
 } from "@mui/material";
 import AverageText from "../components/AverageText";
 import { ErrorBoundary } from "react-error-boundary";
@@ -62,6 +66,9 @@ import { Generate_createGenerateTemplateMutation } from "./__generated__/Generat
 import { Generate_updateGenerateTemplateMutation } from "./__generated__/Generate_updateGenerateTemplateMutation.graphql";
 import { useSnackbar } from "notistack";
 import { formatError } from "../domains/error";
+import Draggable from "react-draggable";
+import Chat, { isChatSupported } from "../components/Chat";
+import * as icons from "@mui/icons-material";
 
 const debouncedContentState = atom({
   key: "Generate/debouncedContentState",
@@ -313,6 +320,7 @@ export default function Generate(): JSX.Element {
     [left]
   );
   const [isOpenLeft, setIsOpenLeft] = React.useState(false);
+  const [isOpenChat, setIsOpenChat] = React.useState(false);
 
   const [isOpenGenerateTemplates, setIsOpenGenerateTemplates] =
     React.useState(false);
@@ -438,6 +446,8 @@ export default function Generate(): JSX.Element {
 
   const { enqueueSnackbar } = useSnackbar();
   const selectedBackgroundImageFile = React.useRef<File | null>(null);
+
+  const dragNodeRef = React.useRef<HTMLDivElement>(null);
 
   return (
     <div>
@@ -904,6 +914,28 @@ export default function Generate(): JSX.Element {
             </Button>
           </Grid>
         </Grid>
+        {isChatSupported && (
+          <>
+            <Divider></Divider>
+            <Grid
+              container
+              spacing={1}
+              columns={{ xs: 4, sm: 8, md: 12 }}
+              style={{ width: "100%" }}
+            >
+              <Grid item xs={2}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setIsOpenChat(true);
+                  }}
+                >
+                  音声操作を利用する(alpha)
+                </Button>
+              </Grid>
+            </Grid>
+          </>
+        )}
       </Stack>
       <Drawer
         open={isOpenTop}
@@ -1034,6 +1066,118 @@ export default function Generate(): JSX.Element {
           </Suspense>
         </DialogContent>
       </Dialog>
+      <Draggable
+        nodeRef={dragNodeRef}
+        handle="#generate-page-draggable-dialog-title"
+        cancel={'[class*="MuiDialogContent-root"]'}
+      >
+        <Fade in={isOpenChat}>
+          <Paper
+            ref={dragNodeRef}
+            style={{
+              position: "fixed",
+              top: 20,
+              left: 20,
+              width: "100%",
+              maxWidth: 600,
+              zIndex: 1300,
+              backgroundColor: "#eee",
+            }}
+          >
+            <DialogTitle
+              style={{ cursor: "move" }}
+              id="generate-page-draggable-dialog-title"
+            >
+              音声操作
+            </DialogTitle>
+            <IconButton
+              onClick={() => {
+                setIsOpenChat(false);
+              }}
+              sx={(theme) => ({
+                position: "absolute",
+                right: 8,
+                top: 8,
+                color: theme.palette.grey[500],
+              })}
+            >
+              <icons.Close />
+            </IconButton>
+            <DialogContent>
+              {isChatSupported && (
+                <Chat
+                  onCommand={(command) => {
+                    switch (command.type) {
+                      case "increaseFontSize":
+                        setFontSize((size) => Math.min(size + 5, 256));
+                        break;
+                      case "decreaseFontSize":
+                        setFontSize((size) => Math.max(size - 5, 1));
+                        break;
+                      case "increaseLineSpacing":
+                        setLineSpace((space) => Math.min(space + 2, 64));
+                        break;
+                      case "decreaseLineSpacing":
+                        setLineSpace((space) => Math.max(space - 2, -64));
+                        break;
+                      case "increaseLetterSpacing":
+                        setLetterSpace((space) => Math.min(space + 2, 64));
+                        break;
+                      case "decreaseLetterSpacing":
+                        setLetterSpace((space) => Math.max(space - 2, -64));
+                        break;
+                      case "increaseFontWeight":
+                        setWeight((weight) => Math.min(weight + 0.5, 10));
+                        break;
+                      case "decreaseFontWeight":
+                        setWeight((weight) => Math.max(weight - 0.5, 0.1));
+                        break;
+                      case "setVerticalWriting":
+                        setMode("vertical");
+                        break;
+                      case "setHorizontalWriting":
+                        setMode("horizontal");
+                        break;
+                      case "makeUp":
+                        if (mode === "horizontal") {
+                          setTop((top) => Math.max(top - 10, -256));
+                        } else {
+                          setLeft((left) => Math.max(left - 10, -256));
+                        }
+                        break;
+                      case "makeDown":
+                        if (mode === "horizontal") {
+                          setTop((top) => Math.min(top + 10, 256));
+                        } else {
+                          setLeft((left) => Math.min(left + 10, 256));
+                        }
+                        break;
+                      case "makeLeft":
+                        if (mode === "horizontal") {
+                          setLeft((left) => Math.max(left - 10, -256));
+                        } else {
+                          setTop((top) => Math.min(top + 10, 256));
+                        }
+                        break;
+                      case "makeRight":
+                        if (mode === "horizontal") {
+                          setLeft((left) => Math.min(left + 10, 256));
+                        } else {
+                          setTop((top) => Math.max(top - 10, -256));
+                        }
+                        break;
+                      case "content":
+                        setContent(command.content);
+                        break;
+                    }
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Paper>
+        </Fade>
+      </Draggable>
+
       <Typography variant="h6">使っている文字</Typography>
       <Suspense fallback={<CircularProgress />}>
         <UsingCharacters usingCharactersState={usingCharactersState} />

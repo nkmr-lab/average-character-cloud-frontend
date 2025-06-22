@@ -18,6 +18,7 @@
     "react": "^18.2.0",
     "react-colorful": "^5.6.1",
     "react-dom": "^18.2.0",
+    "react-draggable": "^4.4.6",
     "react-error-boundary": "^3.1.4",
     "react-hook-form": "^7.33.1",
     "react-relay": "^20.0.0",
@@ -38,6 +39,7 @@
     "fetch-schema": "node ./fetch-schema.mjs"
   },
   "devDependencies": {
+    "@types/dom-speech-recognition": "^0.0.6",
     "@types/react-relay": "^18.2.1",
     "@vitejs/plugin-react": "^2.0.1",
     "axios": "^0.27.2",
