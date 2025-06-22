@@ -53,7 +53,7 @@ export default function useUpdateCharacterConfig(): [Cb, boolean] {
           },
         },
         onCompleted: ({ updateCharacterConfig }) => {
-          if (updateCharacterConfig.errors === null) {
+          if (!updateCharacterConfig.errors) {
             enqueueSnackbar("文字設定を更新しました", {
               variant: "success",
             });
@@ -74,7 +74,7 @@ export default function useUpdateCharacterConfig(): [Cb, boolean] {
           onError?.();
         },
         updater: (store, data) => {
-          if (data.updateCharacterConfig.characterConfig !== null) {
+          if (data.updateCharacterConfig.characterConfig) {
             store
               .get(data.updateCharacterConfig.characterConfig.character.id)!
               .invalidateRecord();

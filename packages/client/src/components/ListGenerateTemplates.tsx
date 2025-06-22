@@ -57,14 +57,20 @@ export default function ListGenerateTemplates({
       <Typography>テンプレート一覧</Typography>
       {pagination.data.generateTemplates.edges.length !== 0 ? (
         <List>
-          {pagination.data.generateTemplates.edges.map((edge) => (
-            <GenerateTemplateListItem
-              key={edge.node.id}
-              generateTemplateKey={edge.node}
-              onClick={onClick}
-              onDelete={onDelete}
-            />
-          ))}
+          {pagination.data.generateTemplates.edges
+            .filter(
+              (edge) =>
+                // workaround for: https://github.com/facebook/relay/issues/3514
+                edge.node
+            )
+            .map((edge) => (
+              <GenerateTemplateListItem
+                key={edge.node.id}
+                generateTemplateKey={edge.node}
+                onClick={onClick}
+                onDelete={onDelete}
+              />
+            ))}
         </List>
       ) : (
         <>テンプレートがありません。</>

@@ -55,9 +55,6 @@ export default function UpdateCharacterConfig({
   }
   const character = characters[0];
   const characterConfig = character.characterConfig;
-  if (characterConfig === null) {
-    throw Error("character config not found");
-  }
 
   const [updateCharacterConfig, updateCharacterConfigLoading] =
     useUpdateCharacterConfig();

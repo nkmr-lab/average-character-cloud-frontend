@@ -122,7 +122,7 @@ export default function CreateFigureRecord(): JSX.Element {
         },
       },
       onCompleted: ({ createFigureRecord }) => {
-        if (createFigureRecord.errors === null) {
+        if (!createFigureRecord.errors) {
           void canvasIframeClientRef.current!.clear();
           enqueueSnackbar("文字を登録しました", {
             variant: "success",
@@ -141,7 +141,7 @@ export default function CreateFigureRecord(): JSX.Element {
         });
       },
       updater: (store, data) => {
-        if (data.createFigureRecord.figureRecord !== null) {
+        if (data.createFigureRecord.figureRecord) {
           store
             .get(data.createFigureRecord.figureRecord.character.id)!
             .invalidateRecord();

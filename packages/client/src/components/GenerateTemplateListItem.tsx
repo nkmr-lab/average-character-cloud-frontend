@@ -109,7 +109,11 @@ export default function GenerateTemplateListItem({
                 },
               },
               onCompleted: ({ deleteGenerateTemplate }) => {
-                if (deleteGenerateTemplate.errors === null) {
+                if (
+                  !deleteGenerateTemplate ||
+                  /* deleteGenerateTemplateは型的にはnullになることはないはずだが、relayの@deleteRecordを使っている関係かなぜかnullになるのでworkaround */
+                  !deleteGenerateTemplate.errors
+                ) {
                   enqueueSnackbar("テンプレートを削除しました", {
                     variant: "success",
                   });

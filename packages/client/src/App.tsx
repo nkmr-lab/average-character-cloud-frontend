@@ -121,7 +121,7 @@ function UserConfigButtonBadge({ children }: { children?: React.ReactNode }) {
     userConfigKey
   );
 
-  return userConfig.updatedAt === null ? (
+  return !userConfig.updatedAt ? (
     <Badge variant="dot" color="secondary">
       {children}
     </Badge>

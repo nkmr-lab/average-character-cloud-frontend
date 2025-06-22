@@ -33,6 +33,7 @@ export default function UserConfig(): JSX.Element {
         }
       }
     `,
+    {},
     { fetchPolicy: "store-and-network" }
   );
 
@@ -103,7 +104,7 @@ export default function UserConfig(): JSX.Element {
                   },
                 },
                 onCompleted: ({ updateUserConfig }) => {
-                  if (updateUserConfig.errors === null) {
+                  if (!updateUserConfig.errors) {
                     enqueueSnackbar("ユーザ設定を更新しました", {
                       variant: "success",
                     });

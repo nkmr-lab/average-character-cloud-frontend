@@ -134,11 +134,6 @@ export default function ListFigureRecords(): JSX.Element {
   const character = characters[0];
 
   const characterConfigKey = character.characterConfig;
-  if (characterConfigKey === null) {
-    throw new Error(
-      `CharacterConfig not found for character: ${characterValue}`
-    );
-  }
 
   const pagination = usePaginationFragment<
     ListFigureRecords_figureRecordsQuery,
@@ -261,7 +256,7 @@ export default function ListFigureRecords(): JSX.Element {
                         },
                       },
                       onCompleted: ({ updateFigureRecord }) => {
-                        if (updateFigureRecord.errors === null) {
+                        if (!updateFigureRecord.errors) {
                           enqueueSnackbar("字の形状を無効化しました", {
                             variant: "success",
                           });
@@ -279,7 +274,7 @@ export default function ListFigureRecords(): JSX.Element {
                         });
                       },
                       updater: (store, data) => {
-                        if (data.updateFigureRecord.figureRecord !== null) {
+                        if (data.updateFigureRecord.figureRecord) {
                           store
                             .get(data.updateFigureRecord.figureRecord.id)!
                             .invalidateRecord();

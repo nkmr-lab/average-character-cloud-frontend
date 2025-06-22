@@ -176,6 +176,7 @@ export default function Generate(): JSX.Element {
         }
       }
     `,
+    {},
     { fetchPolicy: "store-and-network" }
   );
 
@@ -758,10 +759,7 @@ export default function Generate(): JSX.Element {
                             },
                           },
                           onCompleted: ({ createFile }) => {
-                            if (
-                              createFile.file !== null &&
-                              createFile.errors === null
-                            ) {
+                            if (createFile.file && !createFile.errors) {
                               resolve(createFile.file);
                             } else {
                               for (const error of createFile.errors ?? []) {
@@ -835,9 +833,7 @@ export default function Generate(): JSX.Element {
                           },
                         },
                         onCompleted: ({ createGenerateTemplate }) => {
-                          if (
-                            createGenerateTemplate.generateTemplate !== null
-                          ) {
+                          if (createGenerateTemplate.generateTemplate) {
                             enqueueSnackbar("テンプレートを保存しました", {
                               variant: "success",
                             });
@@ -881,7 +877,7 @@ export default function Generate(): JSX.Element {
                       },
                     },
                     onCompleted: ({ updateGenerateTemplate }) => {
-                      if (updateGenerateTemplate.errors === null) {
+                      if (!updateGenerateTemplate.errors) {
                         enqueueSnackbar("テンプレートを更新しました", {
                           variant: "success",
                         });

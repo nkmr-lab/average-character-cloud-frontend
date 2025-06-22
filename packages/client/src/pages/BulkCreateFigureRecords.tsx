@@ -74,7 +74,7 @@ const BulkCanvas = React.forwardRef<
             },
           },
           onCompleted: ({ createFigureRecord }) => {
-            if (createFigureRecord.errors === null) {
+            if (!createFigureRecord.errors) {
               onChangeStrokesNumber(0);
               void canvasIframeClientRef.current!.clear();
               onSubmitDone(true);
@@ -86,7 +86,7 @@ const BulkCanvas = React.forwardRef<
             onSubmitDone(false);
           },
           updater: (store, data) => {
-            if (data.createFigureRecord.figureRecord !== null) {
+            if (data.createFigureRecord.figureRecord) {
               store
                 .get(data.createFigureRecord.figureRecord.character.id)!
                 .invalidateRecord();
