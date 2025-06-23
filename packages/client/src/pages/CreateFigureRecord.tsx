@@ -170,6 +170,13 @@ export default function CreateFigureRecord(): JSX.Element {
               const figure =
                 await canvasIframeClientRef.current!.getFigureJSON();
 
+              if (figure.strokes.length === 0) {
+                enqueueSnackbar("何か書いてください。", {
+                  variant: "error",
+                });
+                return;
+              }
+
               if (
                 characterConfigs.some(
                   (config) => config.strokeCount === figure.strokes.length
