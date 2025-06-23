@@ -3,7 +3,7 @@ import "../polyfills/window";
 import XorShift from "../domains/XorShift";
 import shuffle from "../domains/shuffle";
 import { figureToSvgPart, jsonToFigure } from "../domains/figure_drawer";
-import { Figure, Point } from "@nkmr-lab/average-figure-drawer";
+import { Figure } from "@nkmr-lab/average-figure-drawer";
 import isNotNull from "../utils/isNotNull";
 
 function averageFigureInner(

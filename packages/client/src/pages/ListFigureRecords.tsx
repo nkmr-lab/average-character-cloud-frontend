@@ -31,6 +31,7 @@ import * as utf8 from "../utils/utf8";
 import {
   atomFamily,
   constSelector,
+  selectorFamily,
   useRecoilState_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue,
 } from "recoil";
@@ -41,15 +42,22 @@ import * as icons from "@mui/icons-material";
 import { ListFigureRecords_updateFigureRecordMutation } from "./__generated__/ListFigureRecords_updateFigureRecordMutation.graphql";
 import { useSnackbar } from "notistack";
 import { formatError } from "../domains/error";
+import UpdateCharacterConfig from "../components/UpdateCharacterConfig";
+
+const figureRecordsWrapperStateFamily = selectorFamily({
+  key: "ListFigureRecords/figureRecordsWrapperStateFamily",
+  get:
+    ({ value }: { value: FigureRecordsWrapper }) =>
+    () => {
+      // 無限ループを避けるためのworkaround
+      // constSelectorは参照で同一性チェックされるが、selectorFamilyはtoJSONで同一性チェックされるので無限ループを避けられる
+      return value;
+    },
+});
 
 const seedStateFamily = atomFamily({
   key: "ListFigureRecords/seedStateFamily",
   default: (_: { character: string }) => 0,
-});
-
-const debouncedRandomLevelStateFamily = atomFamily({
-  key: "ListFigureRecords/debouncedRandomLevelStateFamily",
-  default: (_: { character: string }) => 0.9,
 });
 
 const colorState = constSelector<string>("#000000");
@@ -63,28 +71,37 @@ export default function ListFigureRecords(): JSX.Element {
   const count = 100;
   const params = useParams();
   const characterValue = utf8.fromBase64(params.character!);
+  const strokeCount = Number(params.strokeCount!);
   const [fetchKey, setFetchKey] = React.useState(0);
   const [isPending, startTransition] = React.useTransition();
-  const { characters } = useLazyLoadQuery<ListFigureRecords_rootQuery>(
-    graphql`
-      query ListFigureRecords_rootQuery(
-        $character: CharacterValue!
-        $cursor: String
-        $count: Int!
-      ) {
-        characters(values: [$character]) {
-          id
-          ...ListFigureRecords_figureRecords
-            @arguments(cursor: $cursor, count: $count)
+  const { characters, userConfig } =
+    useLazyLoadQuery<ListFigureRecords_rootQuery>(
+      graphql`
+        query ListFigureRecords_rootQuery(
+          $character: CharacterValue!
+          $strokeCount: Int!
+          $cursor: String
+          $count: Int!
+        ) {
+          characters(values: [$character]) {
+            id
+            characterConfig(strokeCount: $strokeCount) {
+              ...ListFigureRecords_figureRecords
+                @arguments(cursor: $cursor, count: $count)
+            }
+          }
+          userConfig {
+            randomLevel
+          }
         }
-      }
-    `,
-    {
-      count,
-      character: characterValue,
-    },
-    { fetchPolicy: "store-and-network", fetchKey }
-  );
+      `,
+      {
+        count,
+        character: characterValue,
+        strokeCount,
+      },
+      { fetchPolicy: "store-and-network", fetchKey }
+    );
   useSubscribeToInvalidationState(
     characters.map(({ id }) => id),
     () => {
@@ -109,24 +126,6 @@ export default function ListFigureRecords(): JSX.Element {
         }
       `
     );
-  const debouncedRandomLevelState = debouncedRandomLevelStateFamily({
-    character: characterValue,
-  });
-  const [debouncedRandomLevel, setDebouncedRandomLevel] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedRandomLevelState);
-  const [randomLevel, setRandomLevel] = React.useState(debouncedRandomLevel);
-
-  const [isReadyRandomLevel] = useDebounce(
-    () => {
-      startTransition(() => {
-        setDebouncedRandomLevel(randomLevel);
-      });
-    },
-    500,
-    [randomLevel]
-  );
-
-  const isReady = isReadyRandomLevel();
 
   if (characters.length === 0) {
     throw new Error(`No character found: ${characterValue}`);
@@ -134,12 +133,14 @@ export default function ListFigureRecords(): JSX.Element {
 
   const character = characters[0];
 
+  const characterConfigKey = character.characterConfig;
+
   const pagination = usePaginationFragment<
     ListFigureRecords_figureRecordsQuery,
     ListFigureRecords_figureRecords$key
   >(
     graphql`
-      fragment ListFigureRecords_figureRecords on Character
+      fragment ListFigureRecords_figureRecords on CharacterConfig
       @argumentDefinitions(cursor: { type: "String" }, count: { type: "Int!" })
       @refetchable(queryName: "ListFigureRecords_figureRecordsQuery") {
         figureRecords(after: $cursor, first: $count, userType: MYSELF)
@@ -155,20 +156,24 @@ export default function ListFigureRecords(): JSX.Element {
         }
       }
     `,
-    character
+    characterConfigKey
   );
 
   const seedState = seedStateFamily({ character: characterValue });
   const [_seed, setSeed] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(seedState);
   const background = useBackground();
+  const randomLevelState = constSelector(userConfig.randomLevel / 100);
+
   const averageFigure = useRecoilValue(
     averageFigureStateFamily({
-      figureRecords: new FigureRecordsWrapper(pagination.data.figureRecords),
-      sharedFigureRecords: null,
+      figureRecordsState: figureRecordsWrapperStateFamily({
+        value: new FigureRecordsWrapper(pagination.data.figureRecords),
+      }),
+      sharedFigureRecordsState: constSelector(null),
       character: characterValue,
       seedState,
-      randomLevelState: debouncedRandomLevelState,
+      randomLevelState,
       colorState,
       sizeState,
       sharedProportionState,
@@ -179,12 +184,18 @@ export default function ListFigureRecords(): JSX.Element {
 
   return (
     <div>
+      <UpdateCharacterConfig
+        characterValue={characterValue}
+        strokeCount={strokeCount}
+      />
       <Typography variant="h6">文字形状一覧</Typography>
       <Button
         component={Link}
-        to={`/characters/character/${encodeURIComponent(
-          utf8.toBase64(characterValue)
-        )}/figure-records/create`}
+        to={`/figure-records/create/i/${utf8.toBase64(
+          characterValue
+        )}?${new URLSearchParams([
+          ["strokeCount", String(strokeCount)],
+        ]).toString()}`}
         state={{ background }}
         variant="contained"
       >
@@ -192,16 +203,6 @@ export default function ListFigureRecords(): JSX.Element {
       </Button>
       <Paper elevation={3} sx={{ m: 1, p: 1 }}>
         <div>{pagination.data.figureRecords.edges.length}件の平均文字</div>
-        <Typography>ゆらぎ</Typography>
-        <Slider
-          min={0}
-          max={1.0}
-          step={0.01}
-          value={randomLevel}
-          onChange={(_e, value) => {
-            setRandomLevel(value as number);
-          }}
-        />
         <Suspense fallback={<CircularProgress />}>
           <div style={{ contain: "strict", width: 256, height: 256 }}>
             {pagination.data.figureRecords.edges.map(({ node }) => (
@@ -232,7 +233,7 @@ export default function ListFigureRecords(): JSX.Element {
                 }}
               />
             </div>
-            {(!isReady || isPending) && <CircularProgress />}
+            {isPending && <CircularProgress />}
           </div>
         </Suspense>
       </Paper>
@@ -255,7 +256,7 @@ export default function ListFigureRecords(): JSX.Element {
                         },
                       },
                       onCompleted: ({ updateFigureRecord }) => {
-                        if (updateFigureRecord.errors === null) {
+                        if (!updateFigureRecord.errors) {
                           enqueueSnackbar("字の形状を無効化しました", {
                             variant: "success",
                           });
@@ -273,7 +274,7 @@ export default function ListFigureRecords(): JSX.Element {
                         });
                       },
                       updater: (store, data) => {
-                        if (data.updateFigureRecord.figureRecord !== null) {
+                        if (data.updateFigureRecord.figureRecord) {
                           store
                             .get(data.updateFigureRecord.figureRecord.id)!
                             .invalidateRecord();

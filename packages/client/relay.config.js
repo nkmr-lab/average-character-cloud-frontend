@@ -9,7 +9,7 @@ module.exports = {
     "**/__mocks__/**",
     "**/__generated__/**",
   ],
-  customScalars: {
+  customScalarTypes: {
     DateTimeUtc: "string",
     CharacterValue: "string",
     Figure: "string",

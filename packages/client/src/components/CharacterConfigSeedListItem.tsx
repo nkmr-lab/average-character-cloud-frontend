@@ -1,7 +1,7 @@
 import { graphql, useFragment } from "react-relay";
 import { CharacterConfigSeedListItem_characterConfigSeed$key } from "./__generated__/CharacterConfigSeedListItem_characterConfigSeed.graphql";
 import { Button, ListItem } from "@mui/material";
-import useCreateCharacterConfig from "../hooks/useCreateCharacterConfig";
+import useUpdateCharacterConfig from "../hooks/useUpdateCharacterConfig";
 
 type Props = {
   characterConfigSeedKey: CharacterConfigSeedListItem_characterConfigSeed$key;
@@ -16,8 +16,8 @@ export default function CharacterConfigSeedListItem({
         fragment CharacterConfigSeedListItem_characterConfigSeed on CharacterConfigSeed {
           character {
             value
-            characterConfig {
-              __typename
+            characterConfigs {
+              strokeCount
             }
           }
           strokeCount
@@ -26,30 +26,31 @@ export default function CharacterConfigSeedListItem({
       characterConfigSeedKey
     );
 
-  const [createCharacterConfig, createCharacterConfigLoading] =
-    useCreateCharacterConfig();
+  const [updateCharacterConfig, updateCharacterConfigLoading] =
+    useUpdateCharacterConfig();
 
   return (
     <ListItem key={characterConfigSeed.character.value}>
       {characterConfigSeed.character.value} ({characterConfigSeed.strokeCount}
       画){" "}
       <Button
-        disabled={
-          createCharacterConfigLoading ||
-          characterConfigSeed.character.characterConfig !== null
-        }
+        disabled={updateCharacterConfigLoading}
         onClick={() => {
-          createCharacterConfig({
+          updateCharacterConfig({
             input: {
               character: characterConfigSeed.character.value,
               strokeCount: characterConfigSeed.strokeCount,
+              disabled: false,
             },
           });
         }}
       >
-        {characterConfigSeed.character.characterConfig === null
-          ? "文字設定を登録"
-          : "登録済み"}
+        この画数を登録{" "}
+        {characterConfigSeed.character.characterConfigs.length === 0
+          ? ""
+          : `登録済みの別の画数: ${characterConfigSeed.character.characterConfigs
+              .map((c) => String(c.strokeCount))
+              .join(", ")}`}
       </Button>
     </ListItem>
   );

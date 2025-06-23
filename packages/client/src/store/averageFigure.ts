@@ -34,6 +34,7 @@ export class FigureRecordsWrapper {
       key
     );
   }
+  // for recoil equality check
   toJSON() {
     return this.value.edges.map(({ node: { id } }) => id).join(",");
   }
@@ -45,8 +46,8 @@ const averageFigureStateFamily = selectorFamily({
     ({
       seedState,
       randomLevelState,
-      figureRecords,
-      sharedFigureRecords,
+      figureRecordsState,
+      sharedFigureRecordsState,
       sharedProportionState,
       colorState,
       character,
@@ -55,8 +56,8 @@ const averageFigureStateFamily = selectorFamily({
     }: {
       seedState: RecoilValue<number>;
       randomLevelState: RecoilValue<number>;
-      figureRecords: FigureRecordsWrapper;
-      sharedFigureRecords: FigureRecordsWrapper | null;
+      figureRecordsState: RecoilValue<FigureRecordsWrapper | null>;
+      sharedFigureRecordsState: RecoilValue<FigureRecordsWrapper | null>;
       sharedProportionState: RecoilValue<number>;
       colorState: RecoilValue<string>;
       character: string;
@@ -66,6 +67,8 @@ const averageFigureStateFamily = selectorFamily({
     async ({ get }): Promise<FigureRendererTypes.Figure> => {
       const seed = get(seedState);
       const randomLevel = get(randomLevelState);
+      const figureRecords = get(figureRecordsState);
+      const sharedFigureRecords = get(sharedFigureRecordsState);
       const sharedProportion = get(sharedProportionState);
       const color = get(colorState);
       const size = get(sizeState);
@@ -74,7 +77,9 @@ const averageFigureStateFamily = selectorFamily({
       const averageFigureResult = await averageFigureInstancePool.run(
         (instance) =>
           instance.averageFigure(
-            figureRecords.value.edges.map(({ node: { figure: json } }) => json),
+            figureRecords?.value.edges.map(
+              ({ node: { figure: json } }) => json
+            ) ?? [],
             sharedFigureRecords?.value.edges.map(
               ({ node: { figure: json } }) => json
             ) ?? [],

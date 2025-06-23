@@ -1,4 +1,7 @@
 export default class XorShift {
+  static initSeeds: number[] = [];
+  static rngForInitSeeds: XorShift = new XorShift(0x12345678);
+
   private x: number;
   private y: number;
   private z: number;
@@ -32,5 +35,13 @@ export default class XorShift {
 
   static randomSeed(): number {
     return Math.floor(Math.random() * 0x100000000);
+  }
+
+  static initSeed(index: number): number {
+    while (XorShift.initSeeds.length <= index) {
+      XorShift.initSeeds.push(XorShift.rngForInitSeeds.next());
+    }
+
+    return XorShift.initSeeds[index];
   }
 }

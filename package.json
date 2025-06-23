@@ -18,7 +18,8 @@
     "format:check": "prettier --check 'packages/*/src/**/*.{ts,tsx}'",
     "format": "prettier --write 'packages/*/src/**/*.{ts,tsx}'",
     "dev": "lerna run --include-dependencies --parallel --stream --scope @average-character-cloud-frontend/client dev",
-    "dev-bff": "lerna run --include-dependencies build --scope @average-character-cloud-frontend/client && lerna run --include-dependencies --parallel --stream --scope @average-character-cloud-frontend/bff dev"
+    "dev-bff": "lerna run --include-dependencies build --scope @average-character-cloud-frontend/client && lerna run --include-dependencies --parallel --stream --scope @average-character-cloud-frontend/bff dev",
+    "fetch-schema": "npm run -w packages/client fetch-schema"
   },
   "workspaces": [
     "packages/app-env",

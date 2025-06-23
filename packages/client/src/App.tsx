@@ -39,7 +39,6 @@ import {
 } from "@mui/material";
 import { appEnv } from "./AppEnv";
 import ListFigureRecords from "./pages/ListFigureRecords";
-import UpdateCharacterConfig from "./pages/UpdateCharacterConfig";
 import CreateFormBulkCreateFigureRecords from "./pages/CreateFormBulkCreateFigureRecords";
 import { RecoilRoot, useRecoilValue, useRecoilValueLoadable } from "recoil";
 import { loginUserIdQuery } from "./store/user";
@@ -122,7 +121,7 @@ function UserConfigButtonBadge({ children }: { children?: React.ReactNode }) {
     userConfigKey
   );
 
-  return userConfig.updatedAt === null ? (
+  return !userConfig.updatedAt ? (
     <Badge variant="dot" color="secondary">
       {children}
     </Badge>
@@ -153,7 +152,7 @@ function AppContainer(): JSX.Element {
               variant="h6"
               sx={{ flexGrow: 1, display: { xs: "none", sm: "block" } }}
             >
-              Average Character Cloud
+              {appEnv.appName}
             </Typography>
             {loginUserIdLoadable.valueMaybe() ? (
               <>
@@ -166,7 +165,7 @@ function AppContainer(): JSX.Element {
                     to="/character-configs"
                     color="inherit"
                   >
-                    文字設定一覧
+                    文字一覧
                   </Button>
                   <Button
                     component={Link}
@@ -218,17 +217,17 @@ function AppInner() {
       <Route path="character-configs">
         <Route index element={<ListCharacterConfigs />} />
         <Route path="create" element={<CreateCharacterConfig />} />
-        <Route path="character/:character">
-          <Route path="update" element={<UpdateCharacterConfig />} />
-        </Route>
       </Route>
-      <Route path="characters/character/:character/figure-records">
-        <Route index element={<ListFigureRecords />} />
-        <Route path="create" element={<CreateFigureRecord />} />
+      <Route path="characters/i/:character">
+        <Route
+          path="character-configs/i/:strokeCount"
+          element={<ListFigureRecords />}
+        ></Route>
       </Route>
       <Route path="figure-records">
+        <Route path="create/i/:character" element={<CreateFigureRecord />} />
         <Route path="bulk-create">
-          <Route path="id/:id" element={<BulkCreateFigureRecords />} />
+          <Route path="i/:id" element={<BulkCreateFigureRecords />} />
           <Route
             path="create-form"
             element={<CreateFormBulkCreateFigureRecords />}

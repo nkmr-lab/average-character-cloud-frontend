@@ -14,15 +14,20 @@ import {
   ListItemText,
   Popover,
   Drawer,
-  Tooltip,
   ToggleButton,
   ToggleButtonGroup,
+  Dialog,
+  DialogContent,
+  Divider,
+  DialogTitle,
+  Paper,
+  IconButton,
+  Fade,
 } from "@mui/material";
 import AverageText from "../components/AverageText";
 import { ErrorBoundary } from "react-error-boundary";
 import { useDebounce } from "react-use";
 import XorShift from "../domains/XorShift";
-import * as icons from "@mui/icons-material";
 import * as FigureRendererTypes from "../domains/FigureRendererTypes";
 import { HexColorPicker } from "react-colorful";
 
@@ -33,11 +38,12 @@ import { Box } from "@mui/system";
 import {
   atom,
   type RecoilValue,
-  selector,
   useRecoilCallback,
   useRecoilState_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue,
+  constSelector,
+  selector,
 } from "recoil";
 import {
   averageTextStateFamily,
@@ -45,34 +51,33 @@ import {
   figureRecordsQueryFamily,
   usingCharactersStateFamily,
 } from "../store/averageText";
-import { useSubscribeToInvalidationState } from "react-relay";
+import {
+  graphql,
+  useLazyLoadQuery,
+  useMutation,
+  useSubscribeToInvalidationState,
+} from "react-relay";
+import { Generate_rootQuery } from "./__generated__/Generate_rootQuery.graphql";
+import ListGenerateTemplates from "../components/ListGenerateTemplates";
+import * as hexColor from "../utils/hexColor";
+import { Generate_createFileMutation } from "./__generated__/Generate_createFileMutation.graphql";
+import { Generate_verifyFileMutation } from "./__generated__/Generate_verifyFileMutation.graphql";
+import { Generate_createGenerateTemplateMutation } from "./__generated__/Generate_createGenerateTemplateMutation.graphql";
+import { Generate_updateGenerateTemplateMutation } from "./__generated__/Generate_updateGenerateTemplateMutation.graphql";
+import { useSnackbar } from "notistack";
+import { formatError } from "../domains/error";
+import Draggable from "react-draggable";
+import Chat, { isChatSupported } from "../components/Chat";
+import * as icons from "@mui/icons-material";
 
 const debouncedContentState = atom({
   key: "Generate/debouncedContentState",
   default: "",
 });
 
-const debouncedRandomLevelState = atom({
-  key: "Generate/debouncedRandomLevelState",
-  default: 0.5,
-});
-
 const seedsState = atom({
   key: "Generate/seedsState",
   default: new Map<number, number>(),
-});
-
-const debouncedSharedProportionState = atom({
-  key: "Generate/debouncedSharedProportionState",
-  default: 0.5,
-});
-
-const enableUseSharedFigureRecordsState = selector({
-  key: "Generate/enableUseSharedFigureRecordsState",
-  get: ({ get }) => {
-    const sharedProportion = get(debouncedSharedProportionState);
-    return sharedProportion > 0;
-  },
 });
 
 const debouncedColorState = atom({
@@ -82,7 +87,7 @@ const debouncedColorState = atom({
 
 const debouncedFontSizeState = atom({
   key: "Generate/debouncedFontSizeState",
-  default: 32,
+  default: 48,
 });
 
 const debouncedTopState = atom({
@@ -110,13 +115,57 @@ const debouncedWeightState = atom({
   default: 1,
 });
 
-const backgroundImageState = atom<{
+const backgroundImageUrlState = atom<string | null>({
+  key: "Generate/backgroundImageUrlState",
+  default: null,
+});
+
+const generateTemplateIdState = atom<string | null>({
+  key: "Generate/generateTemplateIdState",
+  default: null,
+});
+
+const backgroundImageState = selector<{
   url: string;
   width: number;
   height: number;
 } | null>({
   key: "Generate/backgroundImageState",
-  default: null,
+  get: ({ get }) => {
+    const backgroundImageUrl = get(backgroundImageUrlState);
+    if (backgroundImageUrl === null) {
+      return null;
+    }
+
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 1000;
+        const maxHeight = 1000;
+        const ratio = img.width / img.height;
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          width = maxWidth;
+          height = width / ratio;
+        }
+        if (height > maxHeight) {
+          height = maxHeight;
+          width = height * ratio;
+        }
+
+        resolve({
+          url: backgroundImageUrl,
+          width,
+          height,
+        });
+      };
+      img.onerror = (error) => {
+        reject(error);
+      };
+      img.src = backgroundImageUrl;
+    });
+  },
 });
 
 const modeState = atom<"horizontal" | "vertical">({
@@ -125,6 +174,97 @@ const modeState = atom<"horizontal" | "vertical">({
 });
 
 export default function Generate(): JSX.Element {
+  const { userConfig } = useLazyLoadQuery<Generate_rootQuery>(
+    graphql`
+      query Generate_rootQuery {
+        userConfig {
+          randomLevel
+          sharedProportion
+        }
+      }
+    `,
+    {},
+    { fetchPolicy: "store-and-network" }
+  );
+
+  const [createFile, _createFileLoading] =
+    useMutation<Generate_createFileMutation>(
+      graphql`
+        mutation Generate_createFileMutation($input: CreateFileInput!) {
+          createFile(input: $input) {
+            file {
+              fileId
+              uploadUrl
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
+
+  const [verifyFile, _verifyFileLoading] =
+    useMutation<Generate_verifyFileMutation>(
+      graphql`
+        mutation Generate_verifyFileMutation($input: VerifyFileInput!) {
+          verifyFile(input: $input) {
+            file {
+              __typename
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
+
+  const [createGenerateTemplate, _createGenerateTemplateLoading] =
+    useMutation<Generate_createGenerateTemplateMutation>(
+      graphql`
+        mutation Generate_createGenerateTemplateMutation(
+          $input: CreateGenerateTemplateInput!
+        ) {
+          createGenerateTemplate(input: $input) {
+            generateTemplate {
+              __typename
+              generateTemplateId
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
+
+  const [updateGenerateTemplate, _updateGenerateTemplateLoading] =
+    useMutation<Generate_updateGenerateTemplateMutation>(
+      graphql`
+        mutation Generate_updateGenerateTemplateMutation(
+          $input: UpdateGenerateTemplateInput!
+        ) {
+          updateGenerateTemplate(input: $input) {
+            generateTemplate {
+              __typename
+            }
+            errors {
+              message
+            }
+          }
+        }
+      `
+    );
+
+  const randomLevelState = constSelector(userConfig.randomLevel / 100);
+  const sharedProportionState = constSelector(
+    userConfig.sharedProportion / 100
+  );
+  const enableUseSharedFigureRecordsState = constSelector(
+    userConfig.sharedProportion > 0
+  );
+
   const [isPending, startTransition] = React.useTransition();
   const [debouncedContent, setDebouncedContent] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedContentState);
@@ -137,34 +277,6 @@ export default function Generate(): JSX.Element {
     },
     500,
     [content]
-  );
-  const [debouncedRandomLevel, setDebouncedRandomLevel] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedRandomLevelState);
-  const [randomLevel, setRandomLevel] = React.useState(debouncedRandomLevel);
-
-  const [isReadyRandomLevel] = useDebounce(
-    () => {
-      startTransition(() => {
-        setDebouncedRandomLevel(randomLevel);
-      });
-    },
-    500,
-    [randomLevel]
-  );
-
-  const [debouncedSharedProportion, setDebouncedSharedProportion] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedSharedProportionState);
-  const [sharedProportion, setSharedProportion] = React.useState(
-    debouncedSharedProportion
-  );
-  const [isReadySharedProportion] = useDebounce(
-    () => {
-      startTransition(() => {
-        setDebouncedSharedProportion(sharedProportion);
-      });
-    },
-    500,
-    [sharedProportion]
   );
 
   const [debouncedColor, setDebouncedColor] =
@@ -208,6 +320,10 @@ export default function Generate(): JSX.Element {
     [left]
   );
   const [isOpenLeft, setIsOpenLeft] = React.useState(false);
+  const [isOpenChat, setIsOpenChat] = React.useState(false);
+
+  const [isOpenGenerateTemplates, setIsOpenGenerateTemplates] =
+    React.useState(false);
 
   const [debouncedTop, setDebouncedTop] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedTopState);
@@ -266,15 +382,16 @@ export default function Generate(): JSX.Element {
     [weight]
   );
 
-  const [backgroundImage, setBackgroundImage] =
-    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(backgroundImageState);
+  const [backgroundImageUrl, setBackgroundImageUrl] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(backgroundImageUrlState);
+
+  const [generateTemplateId, setGenerateTemplateId] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(generateTemplateIdState);
 
   const [mode, setMode] = useRecoilState_TRANSITION_SUPPORT_UNSTABLE(modeState);
 
   const isReady =
     isReadyContent() &&
-    isReadyRandomLevel() &&
-    isReadySharedProportion() &&
     isReadyColor() &&
     isReadyFontSize() &&
     isReadyLeft() &&
@@ -292,10 +409,10 @@ export default function Generate(): JSX.Element {
 
   const averageTextState = averageTextStateFamily({
     contentState: debouncedContentState,
-    randomLevelState: debouncedRandomLevelState,
+    randomLevelState,
     seedsState: seedsState,
-    sharedProportionState: debouncedSharedProportionState,
-    enableUseSharedFigureRecordsState: enableUseSharedFigureRecordsState,
+    sharedProportionState,
+    enableUseSharedFigureRecordsState,
     colorState: debouncedColorState,
     fontSizeState: debouncedFontSizeState,
     topState: debouncedTopState,
@@ -327,11 +444,19 @@ export default function Generate(): JSX.Element {
   const topText = `${mode === "horizontal" ? "上" : "右"}の余白`;
   const leftText = `${mode === "horizontal" ? "左" : "上"}の余白`;
 
+  const { enqueueSnackbar } = useSnackbar();
+  const selectedBackgroundImageFile = React.useRef<File | null>(null);
+
+  const dragNodeRef = React.useRef<HTMLDivElement>(null);
+
   return (
     <div>
       <Stack spacing={2}>
         <Suspense>
           <SubscribeToInvalidationCharacters
+            enableUseSharedFigureRecordsState={
+              enableUseSharedFigureRecordsState
+            }
             startTransition={startTransition}
           />
         </Suspense>
@@ -396,7 +521,6 @@ export default function Generate(): JSX.Element {
         >
           画像としてダウンロード
         </Button>
-
         <Grid
           container
           spacing={1}
@@ -404,13 +528,95 @@ export default function Generate(): JSX.Element {
           style={{ width: "100%" }}
         >
           <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenFontSize(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              文字サイズ: {fontSize}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenLetterSpace(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              文字間: {letterSpace}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenLineSpace(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              行間: {lineSpace}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenTop(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              {topText}: {top}px
+            </Button>
+          </Grid>
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setIsOpenLeft(true);
+              }}
+              fullWidth
+              style={{
+                textTransform: "none",
+              }}
+            >
+              {leftText}: {left}px
+            </Button>
+          </Grid>
+
+          <Grid item xs={2}>
+            <Typography>字の太さ: {weight.toFixed(1)}</Typography>
+            <Slider
+              min={0.1}
+              max={10}
+              step={0.1}
+              value={weight}
+              onChange={(_e, value) => {
+                setWeight(value as number);
+              }}
+            ></Slider>
+          </Grid>
+          <Grid item xs={2}>
             <div>
               <label htmlFor={inputFileId}>
                 <input
-                  accept="image/*"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
                   hidden
                   id={inputFileId}
-                  multiple
                   type="file"
                   onChange={(evt) => {
                     const files = evt.target.files;
@@ -418,35 +624,16 @@ export default function Generate(): JSX.Element {
                       return;
                     }
                     const file = files[0];
+                    selectedBackgroundImageFile.current = file;
                     const blobUrl = URL.createObjectURL(file);
-                    const img = new Image();
-                    img.onload = () => {
-                      const maxWidth = 1000;
-                      const maxHeight = 1000;
-                      const ratio = img.width / img.height;
-                      let width = img.width;
-                      let height = img.height;
-                      if (width > maxWidth) {
-                        width = maxWidth;
-                        height = width / ratio;
+                    startTransition(() => {
+                      const prevBlobUrl = backgroundImageUrl;
+                      setBackgroundImageUrl(blobUrl);
+                      setGenerateTemplateId(null);
+                      if (prevBlobUrl !== null) {
+                        URL.revokeObjectURL(prevBlobUrl);
                       }
-                      if (height > maxHeight) {
-                        height = maxHeight;
-                        width = height * ratio;
-                      }
-                      startTransition(() => {
-                        const prevBlobUrl = backgroundImage?.url;
-                        setBackgroundImage({
-                          url: blobUrl,
-                          width,
-                          height,
-                        });
-                        if (prevBlobUrl !== undefined) {
-                          URL.revokeObjectURL(prevBlobUrl);
-                        }
-                      });
-                    };
-                    img.src = blobUrl;
+                    });
                   }}
                 />
                 <Button variant="outlined" component="span" fullWidth>
@@ -456,7 +643,7 @@ export default function Generate(): JSX.Element {
                       marginLeft: 4,
                     }}
                   >
-                    {backgroundImage !== null ? (
+                    {backgroundImageUrl !== null ? (
                       <img
                         style={{
                           display: "inline-block",
@@ -464,7 +651,7 @@ export default function Generate(): JSX.Element {
                           verticalAlign: "middle",
                           border: "1px solid #333",
                         }}
-                        src={backgroundImage?.url}
+                        src={backgroundImageUrl}
                         width={16}
                         height={16}
                       />
@@ -529,136 +716,226 @@ export default function Generate(): JSX.Element {
               <ToggleButton value="vertical">縦書き</ToggleButton>
             </ToggleButtonGroup>
           </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenTop(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              {topText}: {top}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLeft(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              {leftText}: {left}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenFontSize(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              文字サイズ: {fontSize}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLetterSpace(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              文字間: {letterSpace}px
-            </Button>
-          </Grid>
-          <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLineSpace(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
-              行間: {lineSpace}px
-            </Button>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography>字の太さ: {weight.toFixed(1)}</Typography>
-            <Slider
-              min={0.1}
-              max={10}
-              step={0.1}
-              value={weight}
-              onChange={(_e, value) => {
-                setWeight(value as number);
-              }}
-            ></Slider>
-          </Grid>
-          <Grid item xs={4}>
-            <Typography>
-              他人の字の割合: {(sharedProportion * 100).toFixed(0)}%
-              <Tooltip title="他人が書いた字をどのくらいの割合で混ぜるかを指定できます。大きいほど自分の字らしさが消えますが字の形のバリエーションが増えます。">
-                <icons.HelpOutline
-                  style={{
-                    fontSize: 18,
-                    verticalAlign: "middle",
-                    marginLeft: 4,
-                  }}
-                />
-              </Tooltip>
-            </Typography>
+        </Grid>
+        <Divider></Divider>
 
-            <Slider
-              min={0}
-              max={1.0}
-              step={0.01}
-              value={sharedProportion}
-              onChange={(_e, value) => {
-                setSharedProportion(value as number);
+        <Grid
+          container
+          spacing={1}
+          columns={{ xs: 4, sm: 8, md: 12 }}
+          style={{ width: "100%" }}
+        >
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => {
+                setIsOpenGenerateTemplates(true);
               }}
-            ></Slider>
+            >
+              テンプレート一覧
+            </Button>
           </Grid>
-          <Grid item xs={4}>
-            <Typography>
-              ゆらぎ: {randomLevel}
-              <Tooltip title="小さいほど綺麗な字に、大きいほど個性的な字になります。">
-                <icons.HelpOutline
-                  style={{
-                    fontSize: 18,
-                    verticalAlign: "middle",
-                    marginLeft: 4,
-                  }}
-                />
-              </Tooltip>
-            </Typography>
-            <Slider
-              min={0}
-              max={1.0}
-              step={0.01}
-              value={randomLevel}
-              onChange={(_e, value) => {
-                setRandomLevel(value as number);
+          <Grid item xs={2}>
+            <Button
+              variant="outlined"
+              fullWidth
+              disabled={backgroundImageUrl === null}
+              onClick={() => {
+                if (backgroundImageUrl === null) {
+                  return;
+                }
+
+                if (generateTemplateId === null) {
+                  const file = selectedBackgroundImageFile.current;
+                  if (file === null) {
+                    // unreachable
+                    enqueueSnackbar("アップロードに失敗しました", {
+                      variant: "error",
+                    });
+                    return;
+                  }
+                  void (async () => {
+                    try {
+                      const { fileId, uploadUrl } = await new Promise<{
+                        fileId: string;
+                        uploadUrl: string;
+                      }>((resolve, reject) => {
+                        createFile({
+                          variables: {
+                            input: {
+                              size: file.size,
+                              mimeType: file.type,
+                            },
+                          },
+                          onCompleted: ({ createFile }) => {
+                            if (createFile.file && !createFile.errors) {
+                              resolve(createFile.file);
+                            } else {
+                              for (const error of createFile.errors ?? []) {
+                                enqueueSnackbar(error.message, {
+                                  variant: "error",
+                                });
+                              }
+                              reject(new Error());
+                            }
+                          },
+                          onError: (error) => {
+                            enqueueSnackbar(formatError(error), {
+                              variant: "error",
+                            });
+                            reject(error);
+                          },
+                        });
+                      });
+
+                      const response = await fetch(uploadUrl, {
+                        method: "PUT",
+                        body: file,
+                      });
+
+                      if (!response.ok) {
+                        enqueueSnackbar("アップロードに失敗しました", {
+                          variant: "error",
+                        });
+                        return;
+                      }
+
+                      await new Promise<void>((resolve, reject) => {
+                        verifyFile({
+                          variables: {
+                            input: {
+                              id: fileId,
+                            },
+                          },
+                          onCompleted: ({ verifyFile }) => {
+                            if (verifyFile.file !== null) {
+                              resolve();
+                            } else {
+                              enqueueSnackbar("アップロードに失敗しました", {
+                                variant: "error",
+                              });
+                              reject(new Error());
+                            }
+                          },
+                          onError: (error) => {
+                            enqueueSnackbar(formatError(error), {
+                              variant: "error",
+                            });
+                            reject(error);
+                          },
+                        });
+                      });
+
+                      createGenerateTemplate({
+                        variables: {
+                          input: {
+                            backgroundImageFileId: fileId,
+                            fontColor: hexColor.hexToNumber(color),
+                            fontSize,
+                            fontWeight: (weight * 10) | 0,
+                            letterSpacing: letterSpace,
+                            lineSpacing: lineSpace,
+                            marginBlockStart: top,
+                            marginInlineStart: left,
+                            writingMode:
+                              mode === "horizontal" ? "HORIZONTAL" : "VERTICAL",
+                          },
+                        },
+                        onCompleted: ({ createGenerateTemplate }) => {
+                          if (createGenerateTemplate.generateTemplate) {
+                            enqueueSnackbar("テンプレートを保存しました", {
+                              variant: "success",
+                            });
+                            setGenerateTemplateId(
+                              createGenerateTemplate.generateTemplate
+                                .generateTemplateId
+                            );
+                          } else {
+                            for (const error of createGenerateTemplate.errors ??
+                              []) {
+                              enqueueSnackbar(error.message, {
+                                variant: "error",
+                              });
+                            }
+                          }
+                        },
+                        onError: (error) => {
+                          enqueueSnackbar(formatError(error), {
+                            variant: "error",
+                          });
+                        },
+                      });
+                    } catch {
+                      // eslint-disable-next-line no-empty
+                    }
+                  })();
+                } else {
+                  updateGenerateTemplate({
+                    variables: {
+                      input: {
+                        generateTemplateId,
+                        fontColor: hexColor.hexToNumber(color),
+                        fontSize,
+                        fontWeight: (weight * 10) | 0,
+                        letterSpacing: letterSpace,
+                        lineSpacing: lineSpace,
+                        marginBlockStart: top,
+                        marginInlineStart: left,
+                        writingMode:
+                          mode === "horizontal" ? "HORIZONTAL" : "VERTICAL",
+                      },
+                    },
+                    onCompleted: ({ updateGenerateTemplate }) => {
+                      if (!updateGenerateTemplate.errors) {
+                        enqueueSnackbar("テンプレートを更新しました", {
+                          variant: "success",
+                        });
+                      } else {
+                        for (const error of updateGenerateTemplate.errors) {
+                          enqueueSnackbar(error.message, {
+                            variant: "error",
+                          });
+                        }
+                      }
+                    },
+                    onError: (error) => {
+                      enqueueSnackbar(formatError(error), {
+                        variant: "error",
+                      });
+                    },
+                  });
+                }
               }}
-            ></Slider>
+            >
+              {generateTemplateId !== null
+                ? "テンプレートを更新"
+                : "テンプレートとして保存"}
+            </Button>
           </Grid>
         </Grid>
+        {isChatSupported && (
+          <>
+            <Divider></Divider>
+            <Grid
+              container
+              spacing={1}
+              columns={{ xs: 4, sm: 8, md: 12 }}
+              style={{ width: "100%" }}
+            >
+              <Grid item xs={2}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setIsOpenChat(true);
+                  }}
+                >
+                  音声操作を利用する(alpha)
+                </Button>
+              </Grid>
+            </Grid>
+          </>
+        )}
       </Stack>
       <Drawer
         open={isOpenTop}
@@ -754,6 +1031,153 @@ export default function Generate(): JSX.Element {
           ></Slider>
         </Box>
       </Drawer>
+      <Dialog
+        open={isOpenGenerateTemplates}
+        onClose={() => {
+          setIsOpenGenerateTemplates(false);
+        }}
+      >
+        <DialogContent>
+          <Suspense fallback={<CircularProgress />}>
+            <ListGenerateTemplates
+              onClick={(generateTemplate) => {
+                startTransition(() => {
+                  setBackgroundImageUrl(generateTemplate.backgroundImage.url);
+                  setGenerateTemplateId(generateTemplate.id);
+                  setColor(hexColor.numberToHex(generateTemplate.fontColor));
+                  setFontSize(generateTemplate.fontSize);
+                  setTop(generateTemplate.marginBlockStart);
+                  setLeft(generateTemplate.marginInlineStart);
+                  setLineSpace(generateTemplate.lineSpacing);
+                  setLetterSpace(generateTemplate.letterSpacing);
+                  setWeight(generateTemplate.fontWeight / 10);
+                  setMode(generateTemplate.writingMode);
+                });
+                setIsOpenGenerateTemplates(false);
+              }}
+              onDelete={(deletedId) => {
+                if (generateTemplateId === deletedId) {
+                  startTransition(() => {
+                    setGenerateTemplateId(null);
+                  });
+                }
+              }}
+            ></ListGenerateTemplates>
+          </Suspense>
+        </DialogContent>
+      </Dialog>
+      <Draggable
+        nodeRef={dragNodeRef}
+        handle="#generate-page-draggable-dialog-title"
+        cancel={'[class*="MuiDialogContent-root"]'}
+      >
+        <Fade in={isOpenChat}>
+          <Paper
+            ref={dragNodeRef}
+            style={{
+              position: "fixed",
+              top: 20,
+              left: 20,
+              width: "100%",
+              maxWidth: 600,
+              zIndex: 1300,
+              backgroundColor: "#eee",
+            }}
+          >
+            <DialogTitle
+              style={{ cursor: "move" }}
+              id="generate-page-draggable-dialog-title"
+            >
+              音声操作
+            </DialogTitle>
+            <IconButton
+              onClick={() => {
+                setIsOpenChat(false);
+              }}
+              sx={(theme) => ({
+                position: "absolute",
+                right: 8,
+                top: 8,
+                color: theme.palette.grey[500],
+              })}
+            >
+              <icons.Close />
+            </IconButton>
+            <DialogContent>
+              {isChatSupported && (
+                <Chat
+                  onCommand={(command) => {
+                    switch (command.type) {
+                      case "increaseFontSize":
+                        setFontSize((size) => Math.min(size + 5, 256));
+                        break;
+                      case "decreaseFontSize":
+                        setFontSize((size) => Math.max(size - 5, 1));
+                        break;
+                      case "increaseLineSpacing":
+                        setLineSpace((space) => Math.min(space + 2, 64));
+                        break;
+                      case "decreaseLineSpacing":
+                        setLineSpace((space) => Math.max(space - 2, -64));
+                        break;
+                      case "increaseLetterSpacing":
+                        setLetterSpace((space) => Math.min(space + 2, 64));
+                        break;
+                      case "decreaseLetterSpacing":
+                        setLetterSpace((space) => Math.max(space - 2, -64));
+                        break;
+                      case "increaseFontWeight":
+                        setWeight((weight) => Math.min(weight + 0.5, 10));
+                        break;
+                      case "decreaseFontWeight":
+                        setWeight((weight) => Math.max(weight - 0.5, 0.1));
+                        break;
+                      case "setVerticalWriting":
+                        setMode("vertical");
+                        break;
+                      case "setHorizontalWriting":
+                        setMode("horizontal");
+                        break;
+                      case "makeUp":
+                        if (mode === "horizontal") {
+                          setTop((top) => Math.max(top - 10, -256));
+                        } else {
+                          setLeft((left) => Math.max(left - 10, -256));
+                        }
+                        break;
+                      case "makeDown":
+                        if (mode === "horizontal") {
+                          setTop((top) => Math.min(top + 10, 256));
+                        } else {
+                          setLeft((left) => Math.min(left + 10, 256));
+                        }
+                        break;
+                      case "makeLeft":
+                        if (mode === "horizontal") {
+                          setLeft((left) => Math.max(left - 10, -256));
+                        } else {
+                          setTop((top) => Math.min(top + 10, 256));
+                        }
+                        break;
+                      case "makeRight":
+                        if (mode === "horizontal") {
+                          setLeft((left) => Math.min(left + 10, 256));
+                        } else {
+                          setTop((top) => Math.max(top - 10, -256));
+                        }
+                        break;
+                      case "content":
+                        setContent(command.content);
+                        break;
+                    }
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Paper>
+        </Fade>
+      </Draggable>
+
       <Typography variant="h6">使っている文字</Typography>
       <Suspense fallback={<CircularProgress />}>
         <UsingCharacters usingCharactersState={usingCharactersState} />
@@ -788,9 +1212,7 @@ function UsingCharacters({
         >
           <ListItemButton
             component={Link}
-            to={`/characters/character/${encodeURIComponent(
-              utf8.toBase64(value)
-            )}/figure-records/create`}
+            to={`/figure-records/create/i/${utf8.toBase64(value)}`}
             state={{ background }}
           >
             <ListItemText> 「{value}」の形状を追加する</ListItemText>
@@ -804,8 +1226,10 @@ function UsingCharacters({
 
 function SubscribeToInvalidationCharacters({
   startTransition,
+  enableUseSharedFigureRecordsState,
 }: {
   startTransition: (callback: () => void) => void;
+  enableUseSharedFigureRecordsState: RecoilValue<boolean>;
 }) {
   const figureRecordsQuery = figureRecordsQueryFamily({
     contentState: debouncedContentState,

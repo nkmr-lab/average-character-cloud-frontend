@@ -32,7 +32,7 @@ export default function CreateFormBulkCreateFigureRecords(): JSX.Element {
             number,
           };
           open(
-            `/figure-records/bulk-create/id/${utf8.toBase64(
+            `/figure-records/bulk-create/i/${utf8.toBase64(
               JSON.stringify(paramsJSON)
             )}?hidden_app_bar=true`
           );
