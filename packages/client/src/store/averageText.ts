@@ -87,6 +87,14 @@ export const figureRecordsQueryFamily = graphQLSelectorFamily({
             ...averageFigureSelector_figureRecords
           }
         }
+        characterConfigSeeds {
+          characterConfig {
+            sharedFigureRecords: figureRecords(first: 10, userType: OTHER)
+              @include(if: $enableUseSharedFigureRecords) {
+              ...averageFigureSelector_figureRecords
+            }
+          }
+        }
       }
     }
   `,
@@ -211,16 +219,18 @@ const pickup2FigureRecordsFamily = selectorFamily({
       const figureRecords = get(figureRecordsQueryState);
 
       // TODO: O(N)
-      const characterConfigs = figureRecords.characters.find(
+      const characterModel = figureRecords.characters.find(
         ({ value }) => value === character
-      )?.characterConfigs;
+      );
 
-      if (characterConfigs === undefined) {
+      if (characterModel === undefined) {
         return {
           figureRecords: null,
           sharedFigureRecords: null,
         };
       }
+
+      const characterConfigs = characterModel.characterConfigs;
 
       const seed = get(seedState);
       const rng = new XorShift(seed);
@@ -229,9 +239,14 @@ const pickup2FigureRecordsFamily = selectorFamily({
         (config) => config.figureRecords.edges.length > 0
       );
       if (nonEmpty.length === 0) {
+        const sharedFigureRecords =
+          characterModel.characterConfigSeeds[0]?.characterConfig
+            .sharedFigureRecords;
         return {
           figureRecords: null,
-          sharedFigureRecords: null,
+          sharedFigureRecords: sharedFigureRecords
+            ? new FigureRecordsWrapper(sharedFigureRecords)
+            : null,
         };
       }
       let ratioSum = 0;
