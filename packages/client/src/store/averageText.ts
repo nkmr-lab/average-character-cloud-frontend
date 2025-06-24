@@ -89,6 +89,7 @@ export const figureRecordsQueryFamily = graphQLSelectorFamily({
         }
         characterConfigSeeds {
           characterConfig {
+            # characterConfigsが未登録の場合、こっちのsharedFigureRecordsを使う
             sharedFigureRecords: figureRecords(first: 10, userType: OTHER)
               @include(if: $enableUseSharedFigureRecords) {
               ...averageFigureSelector_figureRecords
