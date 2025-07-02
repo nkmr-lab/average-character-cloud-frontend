@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   postgres:
     image: "postgres:10.5"
@@ -8,7 +6,7 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
   average-character-cloud-backend:
-    image: ghcr.io/nkmr-lab/average-character-cloud-backend:20230122152958501-7f3a6df
+    image: ghcr.io/kgtkr/average-character-cloud-backend:20250624095645398-1d8268c-update_202606_bugfix
     ports:
       - "8080:8080"
     environment:
@@ -23,10 +21,18 @@ services:
       - AVCC_FAKTORY_URL=tcp://faktory:7419
       - AVCC_ENQUEUE_CRON_TASK=false
       - AVCC_ENABLE_TASK_FRONT=true
+      - AVCC_WORKERS=2
+      - AVCC_STORAGE_BUCKET=avcc
+      - AVCC_STORAGE_PATH_STYLE=true
+      - AWS_ACCESS_KEY_ID=minio-key-id
+      - AWS_SECRET_ACCESS_KEY=minio-secret-key
+      - AWS_REGION=us-east-1
+      - AWS_ENDPOINT_URL=http://localhost:9000
     depends_on:
       - postgres
       - redis
       - faktory
+      - minio
   redis:
     image: "redis:7.0.3"
     volumes:
@@ -35,7 +41,23 @@ services:
     image: contribsys/faktory:1.6.2
     volumes:
       - faktory:/var/lib/faktory/db
+  minio:
+    image: "quay.io/minio/minio:RELEASE.2024-03-26T22-10-45Z"
+    environment:
+      MINIO_ROOT_USER: minio-key-id
+      MINIO_ROOT_PASSWORD: minio-secret-key
+    ports:
+      - 9000:9000
+      - 9001:9001
+    volumes:
+      - minio:/data
+    command:
+      - server
+      - /data
+      - --console-address
+      - ":9001"
 volumes:
   postgres:
   redis:
   faktory:
+  minio:
