@@ -43,7 +43,6 @@ export default function UserConfig(): JSX.Element {
         allowSharingCharacterConfigs
         allowSharingFigureRecords
         randomLevel
-        sharedProportion
       }
     `,
     userConfigKey
@@ -73,7 +72,6 @@ export default function UserConfig(): JSX.Element {
     allowSharingCharacterConfigs: boolean;
     allowSharingFigureRecords: boolean;
     randomLevel: number;
-    sharedProportion: number;
   }>({
     mode: "onChange",
   });
@@ -91,7 +89,6 @@ export default function UserConfig(): JSX.Element {
             ({
               allowSharingCharacterConfigs,
               allowSharingFigureRecords,
-              sharedProportion,
               randomLevel,
             }) => {
               updateUserConfig({
@@ -99,7 +96,6 @@ export default function UserConfig(): JSX.Element {
                   input: {
                     allowSharingCharacterConfigs,
                     allowSharingFigureRecords,
-                    sharedProportion,
                     randomLevel,
                   },
                 },
@@ -172,25 +168,6 @@ export default function UserConfig(): JSX.Element {
             name="randomLevel"
             control={control}
             defaultValue={userConfig.randomLevel}
-            render={({ field }) => (
-              <Slider
-                {...field}
-                max={100}
-                step={1}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(value) => `${value}%`}
-              />
-            )}
-          />
-
-          <Typography variant="subtitle2">他人の字の割合</Typography>
-          <FormHelperText>
-            他人が書いた字をどのくらいの割合で混ぜるかを指定できます。大きいほど自分の字らしさが減りますが、字の形状のバリエーションが増えます。
-          </FormHelperText>
-          <Controller
-            name="sharedProportion"
-            control={control}
-            defaultValue={userConfig.sharedProportion}
             render={({ field }) => (
               <Slider
                 {...field}

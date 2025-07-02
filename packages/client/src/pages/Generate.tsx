@@ -23,6 +23,7 @@ import {
   Paper,
   IconButton,
   Fade,
+  Tooltip,
 } from "@mui/material";
 import AverageText from "../components/AverageText";
 import { ErrorBoundary } from "react-error-boundary";
@@ -69,6 +70,17 @@ import { formatError } from "../domains/error";
 import Draggable from "react-draggable";
 import Chat, { isChatSupported } from "../components/Chat";
 import * as icons from "@mui/icons-material";
+import { graphQLSelector } from "recoil-relay";
+import RelayEnvironment from "../RelayEnvironment";
+import {
+  Generate_userConfigQuery,
+  Generate_userConfigQuery$data,
+  Generate_userConfigQuery$variables,
+} from "./__generated__/Generate_userConfigQuery.graphql";
+import {
+  Generate_userConfigMutation,
+  Generate_userConfigMutation$variables,
+} from "./__generated__/Generate_userConfigMutation.graphql";
 
 const debouncedContentState = atom({
   key: "Generate/debouncedContentState",
@@ -123,6 +135,48 @@ const backgroundImageUrlState = atom<string | null>({
 const generateTemplateIdState = atom<string | null>({
   key: "Generate/generateTemplateIdState",
   default: null,
+});
+
+export const debouncedSharedProportionState = graphQLSelector({
+  key: "Generate/debouncedSharedProportionState",
+  environment: RelayEnvironment,
+  query: graphql`
+    query Generate_userConfigQuery {
+      userConfig {
+        sharedProportion
+      }
+    }
+  `,
+  variables: (): Generate_userConfigQuery$variables => ({}),
+  mapResponse: (data: Generate_userConfigQuery$data) =>
+    data.userConfig.sharedProportion / 100,
+  mutations: {
+    mutation: graphql`
+      mutation Generate_userConfigMutation($input: UpdateUserConfigInput!) {
+        updateUserConfig(input: $input) {
+          userConfig {
+            ...UserConfig_userConfig
+            ...App_userConfig
+          }
+        }
+      }
+    `,
+    variables: (
+      sharedProportion: number
+    ): Generate_userConfigMutation$variables => ({
+      input: {
+        sharedProportion: Math.round(sharedProportion * 100),
+      },
+    }),
+  },
+});
+
+const enableUseSharedFigureRecordsState = selector<boolean>({
+  key: "Generate/enableUseSharedFigureRecordsState",
+  get: ({ get }) => {
+    const debouncedSharedProportion = get(debouncedSharedProportionState);
+    return debouncedSharedProportion > 0;
+  },
 });
 
 const backgroundImageState = selector<{
@@ -258,12 +312,6 @@ export default function Generate(): JSX.Element {
     );
 
   const randomLevelState = constSelector(userConfig.randomLevel / 100);
-  const sharedProportionState = constSelector(
-    userConfig.sharedProportion / 100
-  );
-  const enableUseSharedFigureRecordsState = constSelector(
-    userConfig.sharedProportion > 0
-  );
 
   const [isPending, startTransition] = React.useTransition();
   const [debouncedContent, setDebouncedContent] =
@@ -382,6 +430,21 @@ export default function Generate(): JSX.Element {
     [weight]
   );
 
+  const [debouncedSharedProportion, setDebouncedSharedProportion] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedSharedProportionState);
+  const [sharedProportion, setSharedProportion] = React.useState(
+    debouncedSharedProportion
+  );
+  const [isReadySharedProportion] = useDebounce(
+    () => {
+      startTransition(() => {
+        setDebouncedSharedProportion(sharedProportion);
+      });
+    },
+    500,
+    [sharedProportion]
+  );
+
   const [backgroundImageUrl, setBackgroundImageUrl] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(backgroundImageUrlState);
 
@@ -398,7 +461,8 @@ export default function Generate(): JSX.Element {
     isReadyTop() &&
     isReadyLineSpace() &&
     isReadyLetterSpace() &&
-    isReadyWeight();
+    isReadyWeight() &&
+    isReadySharedProportion();
   const [_seeds, setSeeds] =
     // setだけ返ってくるtransiton対応のhookがない
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(seedsState);
@@ -411,7 +475,7 @@ export default function Generate(): JSX.Element {
     contentState: debouncedContentState,
     randomLevelState,
     seedsState: seedsState,
-    sharedProportionState,
+    sharedProportionState: debouncedSharedProportionState,
     enableUseSharedFigureRecordsState,
     colorState: debouncedColorState,
     fontSizeState: debouncedFontSizeState,
@@ -715,6 +779,30 @@ export default function Generate(): JSX.Element {
               <ToggleButton value="horizontal">横書き</ToggleButton>
               <ToggleButton value="vertical">縦書き</ToggleButton>
             </ToggleButtonGroup>
+          </Grid>
+          <Grid item xs={4}>
+            <Typography>
+              他人の字の割合: {(sharedProportion * 100).toFixed(0)}%
+              <Tooltip title="他人が書いた字をどのくらいの割合で混ぜるかを指定できます。大きいほど自分の字らしさが消えますが字の形のバリエーションが増えます。">
+                <icons.HelpOutline
+                  style={{
+                    fontSize: 18,
+                    verticalAlign: "middle",
+                    marginLeft: 4,
+                  }}
+                />
+              </Tooltip>
+            </Typography>
+
+            <Slider
+              min={0}
+              max={1.0}
+              step={0.01}
+              value={sharedProportion}
+              onChange={(_e, value) => {
+                setSharedProportion(value as number);
+              }}
+            ></Slider>
           </Grid>
         </Grid>
         <Divider></Divider>
