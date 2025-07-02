@@ -62,6 +62,7 @@ type CharacterConfigSeed implements Node {
   character: Character!
   strokeCount: Int!
   updatedAt: DateTimeUtc!
+  characterConfig: CharacterConfig!
 }
 
 input UpdateFigureRecordInput {
