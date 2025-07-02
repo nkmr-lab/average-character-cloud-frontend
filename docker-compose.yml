@@ -27,6 +27,7 @@ services:
       - AWS_ACCESS_KEY_ID=minio-key-id
       - AWS_SECRET_ACCESS_KEY=minio-secret-key
       - AWS_REGION=us-east-1
+      # TODO: minioにしてもlocalhostにしてもファイルアップロード機能が使えない
       - AWS_ENDPOINT_URL=http://localhost:9000
     depends_on:
       - postgres
