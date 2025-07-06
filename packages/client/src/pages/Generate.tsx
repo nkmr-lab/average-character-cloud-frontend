@@ -645,6 +645,7 @@ export default function Generate(): JSX.Element {
           spacing={1}
           columns={{ xs: 4, sm: 8, md: 12 }}
           style={{ width: "100%" }}
+          alignItems="center"
         >
           <Grid item xs={2}>
             <Typography>文字サイズ: {fontSize}px</Typography>
@@ -768,12 +769,7 @@ export default function Generate(): JSX.Element {
                   });
                 }}
               />
-              <Button
-                variant="outlined"
-                component="span"
-                fullWidth
-                style={{ height: "100%" }}
-              >
+              <Button variant="outlined" component="span" fullWidth>
                 背景画像:
                 <span
                   style={{
@@ -806,7 +802,6 @@ export default function Generate(): JSX.Element {
                 setColorPickerAnchorEl(evt.currentTarget);
               }}
               fullWidth
-              style={{ height: "100%" }}
             >
               文字色:
               <span
@@ -837,7 +832,6 @@ export default function Generate(): JSX.Element {
           </Grid>
           <Grid item xs={2}>
             <ToggleButtonGroup
-              style={{ height: "100%" }}
               value={mode}
               exclusive
               onChange={(_evt, newMode) => {
@@ -878,15 +872,9 @@ export default function Generate(): JSX.Element {
               }}
             ></Slider>
           </Grid>
-        </Grid>
-        <Divider></Divider>
-
-        <Grid
-          container
-          spacing={1}
-          columns={{ xs: 4, sm: 8, md: 12 }}
-          style={{ width: "100%" }}
-        >
+          <Grid item xs={12}>
+            <Divider></Divider>
+          </Grid>
           <Grid item xs={2}>
             <Button
               variant="outlined"
@@ -1075,19 +1063,15 @@ export default function Generate(): JSX.Element {
                 : "テンプレートとして保存"}
             </Button>
           </Grid>
-        </Grid>
-        {isChatSupported && (
-          <>
-            <Divider></Divider>
-            <Grid
-              container
-              spacing={1}
-              columns={{ xs: 4, sm: 8, md: 12 }}
-              style={{ width: "100%" }}
-            >
+          {isChatSupported && (
+            <>
+              <Grid item xs={12}>
+                <Divider></Divider>
+              </Grid>
               <Grid item xs={2}>
                 <Button
                   variant="outlined"
+                  fullWidth
                   onClick={() => {
                     setIsOpenChat(true);
                   }}
@@ -1095,9 +1079,15 @@ export default function Generate(): JSX.Element {
                   音声操作を利用する(alpha)
                 </Button>
               </Grid>
-            </Grid>
-          </>
-        )}
+            </>
+          )}
+        </Grid>
+        <Box>
+          <Typography variant="h6">使っている文字</Typography>
+          <Suspense fallback={<CircularProgress />}>
+            <UsingCharacters usingCharactersState={usingCharactersState} />
+          </Suspense>
+        </Box>
       </Stack>
       <Dialog
         open={openGenerateTemplates}
@@ -1245,11 +1235,6 @@ export default function Generate(): JSX.Element {
           </Paper>
         </Fade>
       </Draggable>
-
-      <Typography variant="h6">使っている文字</Typography>
-      <Suspense fallback={<CircularProgress />}>
-        <UsingCharacters usingCharactersState={usingCharactersState} />
-      </Suspense>
     </div>
   );
 }
