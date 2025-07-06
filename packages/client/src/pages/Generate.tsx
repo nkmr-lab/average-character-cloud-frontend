@@ -848,7 +848,7 @@ export default function Generate(): JSX.Element {
               <ToggleButton value="vertical">縦書き</ToggleButton>
             </ToggleButtonGroup>
           </Grid>
-          <Grid item xs={4}>
+          <Grid item xs={2}>
             <Typography>
               他人の字の割合: {(sharedProportion * 100).toFixed(0)}%
               <Tooltip title="他人が書いた字をどのくらいの割合で混ぜるかを指定できます。大きいほど自分の字らしさが消えますが字の形のバリエーションが増えます。">
