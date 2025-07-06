@@ -6,7 +6,7 @@ services:
     volumes:
       - postgres:/var/lib/postgresql/data
   average-character-cloud-backend:
-    image: ghcr.io/kgtkr/average-character-cloud-backend:20250624095645398-1d8268c-update_202606_bugfix
+    image: ghcr.io/kgtkr/average-character-cloud-backend:20250706074915180-2f6c66a-update_202606_bugfix
     ports:
       - "8080:8080"
     environment:
@@ -24,11 +24,11 @@ services:
       - AVCC_WORKERS=2
       - AVCC_STORAGE_BUCKET=avcc
       - AVCC_STORAGE_PATH_STYLE=true
+      - AVCC_STORAGE_PUBLIC_ENDPOINT=http://localhost:9000
       - AWS_ACCESS_KEY_ID=minio-key-id
       - AWS_SECRET_ACCESS_KEY=minio-secret-key
       - AWS_REGION=us-east-1
-      # TODO: minioにしてもlocalhostにしてもファイルアップロード機能が使えない
-      - AWS_ENDPOINT_URL=http://localhost:9000
+      - AWS_ENDPOINT_URL=http://minio:9000
     depends_on:
       - postgres
       - redis
