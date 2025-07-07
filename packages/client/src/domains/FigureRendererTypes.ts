@@ -84,18 +84,26 @@ export async function textToImageUrl(text: Text): Promise<string> {
         .join("")}
     </svg>
   `;
+
+  // 背景画像が1024px以上のとき、仮想キャンバスとしては縮小するがexportする際は元のサイズで出力する
+  // width/heightは仮想キャンバスのサイズ、realWidth/realHeightは背景画像のサイズ
+  const width = text.width;
+  const height = text.height;
+  const realWidth = text.backgroundImage?.width ?? width;
+  const realHeight = text.backgroundImage?.height ?? height;
+
   const canvas = document.createElement("canvas");
-  canvas.width = text.width;
-  canvas.height = text.height;
+  canvas.width = realWidth;
+  canvas.height = realHeight;
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "white";
-  ctx.fillRect(0, 0, text.width, text.height);
+  ctx.fillRect(0, 0, realWidth, realHeight);
   if (text.backgroundImage !== null) {
-    ctx.drawImage(text.backgroundImage, 0, 0, text.width, text.height);
+    ctx.drawImage(text.backgroundImage, 0, 0, realWidth, realHeight);
   }
   const img = await loadImage(`data:image/svg+xml,${encodeURIComponent(svg)}`);
   img.src = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-  ctx.drawImage(img, 0, 0);
+  ctx.drawImage(img, 0, 0, width, height, 0, 0, realWidth, realHeight);
   return canvas.toDataURL();
 }
 

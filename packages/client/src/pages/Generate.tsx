@@ -195,8 +195,8 @@ const backgroundImageState = selector<{
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        const maxWidth = 4096;
-        const maxHeight = 4096;
+        const maxWidth = 1024;
+        const maxHeight = 1024;
         const ratio = img.width / img.height;
         let width = img.width;
         let height = img.height;
