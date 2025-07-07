@@ -183,6 +183,7 @@ const backgroundImageState = selector<{
   url: string;
   width: number;
   height: number;
+  image: HTMLImageElement;
 } | null>({
   key: "Generate/backgroundImageState",
   get: ({ get }) => {
@@ -212,11 +213,13 @@ const backgroundImageState = selector<{
           url: backgroundImageUrl,
           width,
           height,
+          image: img,
         });
       };
       img.onerror = (error) => {
         reject(error);
       };
+      img.crossOrigin = "anonymous";
       img.src = backgroundImageUrl;
     });
   },

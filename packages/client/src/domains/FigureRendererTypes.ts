@@ -65,7 +65,7 @@ export type Text = {
   figures: TextFigure[];
   width: number;
   height: number;
-  backgroundImageUrl: string | null;
+  backgroundImage: HTMLImageElement | null;
 };
 
 export async function textToImageUrl(text: Text): Promise<string> {
@@ -90,9 +90,8 @@ export async function textToImageUrl(text: Text): Promise<string> {
   const ctx = canvas.getContext("2d")!;
   ctx.fillStyle = "white";
   ctx.fillRect(0, 0, text.width, text.height);
-  if (text.backgroundImageUrl !== null) {
-    const backgroundImg = await loadImage(text.backgroundImageUrl);
-    ctx.drawImage(backgroundImg, 0, 0, text.width, text.height);
+  if (text.backgroundImage !== null) {
+    ctx.drawImage(text.backgroundImage, 0, 0, text.width, text.height);
   }
   const img = await loadImage(`data:image/svg+xml,${encodeURIComponent(svg)}`);
   img.src = `data:image/svg+xml,${encodeURIComponent(svg)}`;

@@ -373,6 +373,7 @@ export const averageTextStateFamily = selectorFamily({
         url: string;
         width: number;
         height: number;
+        image: HTMLImageElement;
       } | null>;
       weightState: RecoilValue<number>;
       modeState: RecoilValue<"horizontal" | "vertical">;
@@ -506,7 +507,7 @@ export const averageTextStateFamily = selectorFamily({
         figures,
         width,
         height,
-        backgroundImageUrl: backgroundImage?.url ?? null,
+        backgroundImage: backgroundImage?.image ?? null,
       };
     },
 });
