@@ -54,10 +54,14 @@ export default function CreateFigureRecord(): JSX.Element {
     { fetchPolicy: "store-and-network", fetchKey }
   );
 
+  const [_, startTransition] = React.useTransition();
+
   useSubscribeToInvalidationState(
     rootData.characters.map(({ id }) => id),
     () => {
-      setFetchKey((prev) => prev + 1);
+      startTransition(() => {
+        setFetchKey((prev) => prev + 1);
+      });
     }
   );
 
@@ -74,7 +78,6 @@ export default function CreateFigureRecord(): JSX.Element {
       @relay(plural: true) {
         id
         strokeCount
-        disabled
       }
     `,
     characterConfigsKey

@@ -1,5 +1,5 @@
 import * as icons from "@mui/icons-material";
-import { Alert, IconButton } from "@mui/material";
+import { Alert, Box, IconButton } from "@mui/material";
 import React from "react";
 import {
   ChatCommand,
@@ -74,25 +74,37 @@ export default function Chat({ onCommand }: Props): JSX.Element {
   }, []);
 
   return (
-    <div>
+    <>
       <div>利用可能なコマンド: {availableChatCommands.join(", ")}</div>
-      <IconButton
-        onClick={() => {
-          if (recognitionRef.current) {
-            recognitionRef.current.start();
-          }
-        }}
-      >
-        <icons.Mic></icons.Mic>
-      </IconButton>
+      <Box display="flex">
+        <IconButton
+          onClick={() => {
+            if (recognitionRef.current) {
+              recognitionRef.current.start();
+            }
+          }}
+        >
+          <icons.Mic color={recognizing ? "primary" : "inherit"}></icons.Mic>
+        </IconButton>
+        {transcript || recognizing ? (
+          <Box
+            style={{
+              width: "100%",
+              marginTop: "8px",
+            }}
+          >
+            発話: {transcript}
+          </Box>
+        ) : null}
+      </Box>
       {recognizing ? (
         <div>認識中...</div>
       ) : (
         <div>音声認識を開始するにはマイクボタンをクリックしてください</div>
       )}
-      <div>発話: {transcript}</div>
+
       {error && <Alert severity="error">{error}</Alert>}
       {commandParseError && <Alert severity="error">{commandParseError}</Alert>}
-    </div>
+    </>
   );
 }

@@ -9,7 +9,7 @@ export function HeightArrow({
 }): JSX.Element {
   const weight = 2;
   const color = "red";
-  const width = 16;
+  const width = Math.min(16, height);
   const size = width / 2;
 
   return (
@@ -77,7 +77,7 @@ export function WidthArrow({
 }): JSX.Element {
   const weight = 2;
   const color = "red";
-  const height = 16;
+  const height = Math.min(16, width);
   const size = height / 2;
 
   return (
