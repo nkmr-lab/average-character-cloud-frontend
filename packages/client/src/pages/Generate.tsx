@@ -13,7 +13,6 @@ import {
   ListItemButton,
   ListItemText,
   Popover,
-  Drawer,
   ToggleButton,
   ToggleButtonGroup,
   Dialog,
@@ -23,6 +22,7 @@ import {
   Paper,
   IconButton,
   Fade,
+  Tooltip,
 } from "@mui/material";
 import AverageText from "../components/AverageText";
 import { ErrorBoundary } from "react-error-boundary";
@@ -42,7 +42,6 @@ import {
   useRecoilState_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue,
-  constSelector,
   selector,
 } from "recoil";
 import {
@@ -53,11 +52,9 @@ import {
 } from "../store/averageText";
 import {
   graphql,
-  useLazyLoadQuery,
   useMutation,
   useSubscribeToInvalidationState,
 } from "react-relay";
-import { Generate_rootQuery } from "./__generated__/Generate_rootQuery.graphql";
 import ListGenerateTemplates from "../components/ListGenerateTemplates";
 import * as hexColor from "../utils/hexColor";
 import { Generate_createFileMutation } from "./__generated__/Generate_createFileMutation.graphql";
@@ -69,6 +66,13 @@ import { formatError } from "../domains/error";
 import Draggable from "react-draggable";
 import Chat, { isChatSupported } from "../components/Chat";
 import * as icons from "@mui/icons-material";
+import { graphQLSelector } from "recoil-relay";
+import RelayEnvironment from "../RelayEnvironment";
+import {
+  Generate_userConfigQuery$data,
+  Generate_userConfigQuery$variables,
+} from "./__generated__/Generate_userConfigQuery.graphql";
+import { Generate_userConfigMutation$variables } from "./__generated__/Generate_userConfigMutation.graphql";
 
 const debouncedContentState = atom({
   key: "Generate/debouncedContentState",
@@ -125,10 +129,86 @@ const generateTemplateIdState = atom<string | null>({
   default: null,
 });
 
+const debouncedUserConfigState = graphQLSelector({
+  key: "Generate/debouncedUserConfigState",
+  environment: RelayEnvironment,
+  query: graphql`
+    query Generate_userConfigQuery {
+      userConfig {
+        sharedProportion
+        randomLevel
+      }
+    }
+  `,
+  variables: (): Generate_userConfigQuery$variables => ({}),
+  mapResponse: (data: Generate_userConfigQuery$data) => ({
+    sharedProportion: data.userConfig.sharedProportion / 100,
+    randomLevel: data.userConfig.randomLevel / 100,
+  }),
+  mutations: {
+    mutation: graphql`
+      mutation Generate_userConfigMutation($input: UpdateUserConfigInput!) {
+        updateUserConfig(input: $input) {
+          userConfig {
+            ...UserConfig_userConfig
+            ...App_userConfig
+          }
+        }
+      }
+    `,
+    variables: (data: {
+      sharedProportion: number;
+      randomLevel: number;
+    }): Generate_userConfigMutation$variables => ({
+      input: {
+        sharedProportion: Math.round(data.sharedProportion * 100),
+        randomLevel: Math.round(data.randomLevel * 100),
+      },
+    }),
+  },
+});
+
+const debouncedSharedProportionState = selector<number>({
+  key: "Generate/debouncedSharedProportionState",
+  get: ({ get }) => {
+    const { sharedProportion } = get(debouncedUserConfigState);
+    return sharedProportion;
+  },
+  set: ({ set }, newValue) => {
+    set(debouncedUserConfigState, (prev) => ({
+      ...prev,
+      sharedProportion: newValue as number, // TODO: なぜかnewValue: number | DefaultValueと推論されるので
+    }));
+  },
+});
+
+const debouncedRandomLevelState = selector<number>({
+  key: "Generate/debouncedRandomLevelState",
+  get: ({ get }) => {
+    const { randomLevel } = get(debouncedUserConfigState);
+    return randomLevel;
+  },
+  set: ({ set }, newValue) => {
+    set(debouncedUserConfigState, (prev) => ({
+      ...prev,
+      randomLevel: newValue as number, // TODO: なぜかnewValue: number | DefaultValueと推論されるので
+    }));
+  },
+});
+
+const enableUseSharedFigureRecordsState = selector<boolean>({
+  key: "Generate/enableUseSharedFigureRecordsState",
+  get: ({ get }) => {
+    const debouncedSharedProportion = get(debouncedSharedProportionState);
+    return debouncedSharedProportion > 0;
+  },
+});
+
 const backgroundImageState = selector<{
   url: string;
   width: number;
   height: number;
+  image: HTMLImageElement;
 } | null>({
   key: "Generate/backgroundImageState",
   get: ({ get }) => {
@@ -140,8 +220,8 @@ const backgroundImageState = selector<{
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
-        const maxWidth = 1000;
-        const maxHeight = 1000;
+        const maxWidth = 1024;
+        const maxHeight = 1024;
         const ratio = img.width / img.height;
         let width = img.width;
         let height = img.height;
@@ -158,11 +238,13 @@ const backgroundImageState = selector<{
           url: backgroundImageUrl,
           width,
           height,
+          image: img,
         });
       };
       img.onerror = (error) => {
         reject(error);
       };
+      img.crossOrigin = "anonymous";
       img.src = backgroundImageUrl;
     });
   },
@@ -174,19 +256,6 @@ const modeState = atom<"horizontal" | "vertical">({
 });
 
 export default function Generate(): JSX.Element {
-  const { userConfig } = useLazyLoadQuery<Generate_rootQuery>(
-    graphql`
-      query Generate_rootQuery {
-        userConfig {
-          randomLevel
-          sharedProportion
-        }
-      }
-    `,
-    {},
-    { fetchPolicy: "store-and-network" }
-  );
-
   const [createFile, _createFileLoading] =
     useMutation<Generate_createFileMutation>(
       graphql`
@@ -257,14 +326,6 @@ export default function Generate(): JSX.Element {
       `
     );
 
-  const randomLevelState = constSelector(userConfig.randomLevel / 100);
-  const sharedProportionState = constSelector(
-    userConfig.sharedProportion / 100
-  );
-  const enableUseSharedFigureRecordsState = constSelector(
-    userConfig.sharedProportion > 0
-  );
-
   const [isPending, startTransition] = React.useTransition();
   const [debouncedContent, setDebouncedContent] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedContentState);
@@ -305,7 +366,6 @@ export default function Generate(): JSX.Element {
     500,
     [fontSize]
   );
-  const [isOpenFontSize, setIsOpenFontSize] = React.useState(false);
 
   const [debouncedLeft, setDebouncedLeft] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedLeftState);
@@ -319,10 +379,63 @@ export default function Generate(): JSX.Element {
     500,
     [left]
   );
-  const [isOpenLeft, setIsOpenLeft] = React.useState(false);
+
+  // changingFontSize || debouncedChangingFontSizeを使用することでスライダーから手を離してから1秒間は矢印を表示させる
+  const [changingFontSize, setChangingFontSize] = React.useState(false);
+  const [debouncedChangingFontSize, setDebouncedChangingFontSize] =
+    React.useState(changingFontSize);
+  useDebounce(
+    () => {
+      setDebouncedChangingFontSize(changingFontSize);
+    },
+    1000,
+    [changingFontSize]
+  );
+
+  const [changingLeft, setChangingLeft] = React.useState(false);
+  const [debouncedChangingLeft, setDebouncedChangingLeft] =
+    React.useState(changingLeft);
+  useDebounce(
+    () => {
+      setDebouncedChangingLeft(changingLeft);
+    },
+    1000,
+    [changingLeft]
+  );
+  const [changingTop, setChangingTop] = React.useState(false);
+  const [debouncedChangingTop, setDebouncedChangingTop] =
+    React.useState(changingTop);
+  useDebounce(
+    () => {
+      setDebouncedChangingTop(changingTop);
+    },
+    1000,
+    [changingTop]
+  );
+  const [changingLineSpace, setChangingLineSpace] = React.useState(false);
+  const [debouncedChangingLineSpace, setDebouncedChangingLineSpace] =
+    React.useState(changingLineSpace);
+  useDebounce(
+    () => {
+      setDebouncedChangingLineSpace(changingLineSpace);
+    },
+    1000,
+    [changingLineSpace]
+  );
+  const [changingLetterSpace, setChangingLetterSpace] = React.useState(false);
+  const [debouncedChangingLetterSpace, setDebouncedChangingLetterSpace] =
+    React.useState(changingLetterSpace);
+  useDebounce(
+    () => {
+      setDebouncedChangingLetterSpace(changingLetterSpace);
+    },
+    1000,
+    [changingLetterSpace]
+  );
+
   const [isOpenChat, setIsOpenChat] = React.useState(false);
 
-  const [isOpenGenerateTemplates, setIsOpenGenerateTemplates] =
+  const [openGenerateTemplates, setOpenGenerateTemplates] =
     React.useState(false);
 
   const [debouncedTop, setDebouncedTop] =
@@ -338,7 +451,6 @@ export default function Generate(): JSX.Element {
     500,
     [top]
   );
-  const [isOpenTop, setIsOpenTop] = React.useState(false);
 
   const [debouncedLineSpace, setDebouncedLineSpace] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedLineSpaceState);
@@ -352,7 +464,6 @@ export default function Generate(): JSX.Element {
     500,
     [lineSpace]
   );
-  const [isOpenLineSpace, setIsOpenLineSpace] = React.useState(false);
 
   const [debouncedLetterSpace, setDebouncedLetterSpace] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedLetterSpaceState);
@@ -367,7 +478,6 @@ export default function Generate(): JSX.Element {
     500,
     [letterSpace]
   );
-  const [isOpenLetterSpace, setIsOpenLetterSpace] = React.useState(false);
 
   const [debouncedWeight, setDebouncedWeight] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedWeightState);
@@ -380,6 +490,34 @@ export default function Generate(): JSX.Element {
     },
     500,
     [weight]
+  );
+
+  const [debouncedSharedProportion, setDebouncedSharedProportion] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedSharedProportionState);
+  const [sharedProportion, setSharedProportion] = React.useState(
+    debouncedSharedProportion
+  );
+  const [isReadySharedProportion] = useDebounce(
+    () => {
+      startTransition(() => {
+        setDebouncedSharedProportion(sharedProportion);
+      });
+    },
+    500,
+    [sharedProportion]
+  );
+
+  const [debouncedRandomLevel, setDebouncedRandomLevel] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedRandomLevelState);
+  const [randomLevel, setRandomLevel] = React.useState(debouncedRandomLevel);
+  const [isReadyRandomLevel] = useDebounce(
+    () => {
+      startTransition(() => {
+        setDebouncedRandomLevel(randomLevel);
+      });
+    },
+    500,
+    [randomLevel]
   );
 
   const [backgroundImageUrl, setBackgroundImageUrl] =
@@ -398,7 +536,9 @@ export default function Generate(): JSX.Element {
     isReadyTop() &&
     isReadyLineSpace() &&
     isReadyLetterSpace() &&
-    isReadyWeight();
+    isReadyWeight() &&
+    isReadySharedProportion() &&
+    isReadyRandomLevel();
   const [_seeds, setSeeds] =
     // setだけ返ってくるtransiton対応のhookがない
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(seedsState);
@@ -409,9 +549,9 @@ export default function Generate(): JSX.Element {
 
   const averageTextState = averageTextStateFamily({
     contentState: debouncedContentState,
-    randomLevelState,
+    randomLevelState: debouncedRandomLevelState,
     seedsState: seedsState,
-    sharedProportionState,
+    sharedProportionState: debouncedSharedProportionState,
     enableUseSharedFigureRecordsState,
     colorState: debouncedColorState,
     fontSizeState: debouncedFontSizeState,
@@ -492,16 +632,22 @@ export default function Generate(): JSX.Element {
                     });
                   });
                 }}
-                fontSize={debouncedFontSize}
-                left={debouncedLeft}
-                top={debouncedTop}
-                lineSpace={debouncedLineSpace}
-                letterSpace={debouncedLetterSpace}
-                showTopArrow={isOpenTop}
-                showLeftArrow={isOpenLeft}
-                showFontSizeArrow={isOpenFontSize}
-                showLetterSpaceArrow={isOpenLetterSpace}
-                showLineSpaceArrow={isOpenLineSpace}
+                fontSize={fontSize}
+                left={left}
+                top={top}
+                lineSpace={lineSpace}
+                letterSpace={letterSpace}
+                showTopArrow={changingTop || debouncedChangingTop}
+                showLeftArrow={changingLeft || debouncedChangingLeft}
+                showFontSizeArrow={
+                  changingFontSize || debouncedChangingFontSize
+                }
+                showLetterSpaceArrow={
+                  changingLetterSpace || debouncedChangingLetterSpace
+                }
+                showLineSpaceArrow={
+                  changingLineSpace || debouncedChangingLineSpace
+                }
                 mode={mode}
               />
 
@@ -526,76 +672,91 @@ export default function Generate(): JSX.Element {
           spacing={1}
           columns={{ xs: 4, sm: 8, md: 12 }}
           style={{ width: "100%" }}
+          alignItems="center"
         >
           <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenFontSize(true);
+            <Typography>文字サイズ: {fontSize}px</Typography>
+            <Slider
+              min={1}
+              max={256}
+              step={1}
+              value={fontSize}
+              onChange={(_e, value) => {
+                setChangingFontSize(true);
+                setFontSize(value as number);
               }}
-              fullWidth
-              style={{
-                textTransform: "none",
+              onChangeCommitted={() => {
+                setChangingFontSize(false);
               }}
-            >
-              文字サイズ: {fontSize}px
-            </Button>
+            ></Slider>
           </Grid>
           <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLetterSpace(true);
+            <Typography>文字間: {letterSpace}px</Typography>
+            <Slider
+              min={-64}
+              max={64}
+              step={1}
+              value={letterSpace}
+              onChange={(_e, value) => {
+                setLetterSpace(value as number);
+                setChangingLetterSpace(true);
               }}
-              fullWidth
-              style={{
-                textTransform: "none",
+              onChangeCommitted={() => {
+                setChangingLetterSpace(false);
               }}
-            >
-              文字間: {letterSpace}px
-            </Button>
+            ></Slider>
           </Grid>
           <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLineSpace(true);
+            <Typography>行間: {lineSpace}px</Typography>
+            <Slider
+              min={-64}
+              max={64}
+              step={1}
+              value={lineSpace}
+              onChange={(_e, value) => {
+                setLineSpace(value as number);
+                setChangingLineSpace(true);
               }}
-              fullWidth
-              style={{
-                textTransform: "none",
+              onChangeCommitted={() => {
+                setChangingLineSpace(false);
               }}
-            >
-              行間: {lineSpace}px
-            </Button>
+            ></Slider>
           </Grid>
           <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenTop(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
+            <Typography>
               {topText}: {top}px
-            </Button>
+            </Typography>
+            <Slider
+              min={-256}
+              max={256}
+              step={1}
+              value={top}
+              onChange={(_e, value) => {
+                setTop(value as number);
+                setChangingTop(true);
+              }}
+              onChangeCommitted={() => {
+                setChangingTop(false);
+              }}
+            ></Slider>
           </Grid>
           <Grid item xs={2}>
-            <Button
-              variant="outlined"
-              onClick={() => {
-                setIsOpenLeft(true);
-              }}
-              fullWidth
-              style={{
-                textTransform: "none",
-              }}
-            >
+            <Typography>
               {leftText}: {left}px
-            </Button>
+            </Typography>
+            <Slider
+              min={-256}
+              max={256}
+              step={1}
+              value={left}
+              onChange={(_e, value) => {
+                setLeft(value as number);
+                setChangingLeft(true);
+              }}
+              onChangeCommitted={() => {
+                setChangingLeft(false);
+              }}
+            ></Slider>
           </Grid>
 
           <Grid item xs={2}>
@@ -611,57 +772,55 @@ export default function Generate(): JSX.Element {
             ></Slider>
           </Grid>
           <Grid item xs={2}>
-            <div>
-              <label htmlFor={inputFileId}>
-                <input
-                  accept="image/png,image/jpeg,image/webp,image/gif"
-                  hidden
-                  id={inputFileId}
-                  type="file"
-                  onChange={(evt) => {
-                    const files = evt.target.files;
-                    if (files === null || files.length === 0) {
-                      return;
+            <label htmlFor={inputFileId}>
+              <input
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                hidden
+                id={inputFileId}
+                type="file"
+                onChange={(evt) => {
+                  const files = evt.target.files;
+                  if (files === null || files.length === 0) {
+                    return;
+                  }
+                  const file = files[0];
+                  selectedBackgroundImageFile.current = file;
+                  const blobUrl = URL.createObjectURL(file);
+                  startTransition(() => {
+                    const prevBlobUrl = backgroundImageUrl;
+                    setBackgroundImageUrl(blobUrl);
+                    setGenerateTemplateId(null);
+                    if (prevBlobUrl !== null) {
+                      URL.revokeObjectURL(prevBlobUrl);
                     }
-                    const file = files[0];
-                    selectedBackgroundImageFile.current = file;
-                    const blobUrl = URL.createObjectURL(file);
-                    startTransition(() => {
-                      const prevBlobUrl = backgroundImageUrl;
-                      setBackgroundImageUrl(blobUrl);
-                      setGenerateTemplateId(null);
-                      if (prevBlobUrl !== null) {
-                        URL.revokeObjectURL(prevBlobUrl);
-                      }
-                    });
+                  });
+                }}
+              />
+              <Button variant="outlined" component="span" fullWidth>
+                背景画像:
+                <span
+                  style={{
+                    marginLeft: 4,
                   }}
-                />
-                <Button variant="outlined" component="span" fullWidth>
-                  背景画像:
-                  <span
-                    style={{
-                      marginLeft: 4,
-                    }}
-                  >
-                    {backgroundImageUrl !== null ? (
-                      <img
-                        style={{
-                          display: "inline-block",
-                          borderRadius: 2,
-                          verticalAlign: "middle",
-                          border: "1px solid #333",
-                        }}
-                        src={backgroundImageUrl}
-                        width={16}
-                        height={16}
-                      />
-                    ) : (
-                      "なし"
-                    )}
-                  </span>
-                </Button>
-              </label>
-            </div>
+                >
+                  {backgroundImageUrl !== null ? (
+                    <img
+                      style={{
+                        display: "inline-block",
+                        borderRadius: 2,
+                        verticalAlign: "middle",
+                        border: "1px solid #333",
+                      }}
+                      src={backgroundImageUrl}
+                      width={16}
+                      height={16}
+                    />
+                  ) : (
+                    "なし"
+                  )}
+                </span>
+              </Button>
+            </label>
           </Grid>
           <Grid item xs={2}>
             <Button
@@ -716,21 +875,63 @@ export default function Generate(): JSX.Element {
               <ToggleButton value="vertical">縦書き</ToggleButton>
             </ToggleButtonGroup>
           </Grid>
-        </Grid>
-        <Divider></Divider>
+          <Grid item xs={2}>
+            <Typography>
+              他人の字の割合: {(sharedProportion * 100).toFixed(0)}%
+              <Tooltip title="他人が書いた字をどのくらいの割合で混ぜるかを指定できます。大きいほど自分の字らしさが消えますが字の形のバリエーションが増えます。">
+                <icons.HelpOutline
+                  style={{
+                    fontSize: 18,
+                    verticalAlign: "middle",
+                    marginLeft: 4,
+                  }}
+                />
+              </Tooltip>
+            </Typography>
 
-        <Grid
-          container
-          spacing={1}
-          columns={{ xs: 4, sm: 8, md: 12 }}
-          style={{ width: "100%" }}
-        >
+            <Slider
+              min={0}
+              max={1.0}
+              step={0.01}
+              value={sharedProportion}
+              onChange={(_e, value) => {
+                setSharedProportion(value as number);
+              }}
+            ></Slider>
+          </Grid>
+          <Grid item xs={2}>
+            <Typography>
+              ゆらぎ: {(randomLevel * 100).toFixed(0)}%
+              <Tooltip title="小さいほど綺麗な字に、大きいほど個性的な字になります。">
+                <icons.HelpOutline
+                  style={{
+                    fontSize: 18,
+                    verticalAlign: "middle",
+                    marginLeft: 4,
+                  }}
+                />
+              </Tooltip>
+            </Typography>
+
+            <Slider
+              min={0}
+              max={1.0}
+              step={0.01}
+              value={randomLevel}
+              onChange={(_e, value) => {
+                setRandomLevel(value as number);
+              }}
+            ></Slider>
+          </Grid>
+          <Grid item xs={12}>
+            <Divider></Divider>
+          </Grid>
           <Grid item xs={2}>
             <Button
               variant="outlined"
               fullWidth
               onClick={() => {
-                setIsOpenGenerateTemplates(true);
+                setOpenGenerateTemplates(true);
               }}
             >
               テンプレート一覧
@@ -913,19 +1114,15 @@ export default function Generate(): JSX.Element {
                 : "テンプレートとして保存"}
             </Button>
           </Grid>
-        </Grid>
-        {isChatSupported && (
-          <>
-            <Divider></Divider>
-            <Grid
-              container
-              spacing={1}
-              columns={{ xs: 4, sm: 8, md: 12 }}
-              style={{ width: "100%" }}
-            >
+          {isChatSupported && (
+            <>
+              <Grid item xs={12}>
+                <Divider></Divider>
+              </Grid>
               <Grid item xs={2}>
                 <Button
                   variant="outlined"
+                  fullWidth
                   onClick={() => {
                     setIsOpenChat(true);
                   }}
@@ -933,108 +1130,20 @@ export default function Generate(): JSX.Element {
                   音声操作を利用する(alpha)
                 </Button>
               </Grid>
-            </Grid>
-          </>
-        )}
+            </>
+          )}
+        </Grid>
+        <Box>
+          <Typography variant="h6">使っている文字</Typography>
+          <Suspense fallback={<CircularProgress />}>
+            <UsingCharacters usingCharactersState={usingCharactersState} />
+          </Suspense>
+        </Box>
       </Stack>
-      <Drawer
-        open={isOpenTop}
-        onClose={() => setIsOpenTop(false)}
-        anchor="bottom"
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography>
-            {topText}: {top}px
-          </Typography>
-          <Slider
-            min={-256}
-            max={256}
-            step={1}
-            value={top}
-            onChange={(_e, value) => {
-              setTop(value as number);
-            }}
-          ></Slider>
-        </Box>
-      </Drawer>
-      <Drawer
-        open={isOpenLeft}
-        onClose={() => setIsOpenLeft(false)}
-        anchor="bottom"
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography>
-            {leftText}: {left}px
-          </Typography>
-          <Slider
-            min={-256}
-            max={256}
-            step={1}
-            value={left}
-            onChange={(_e, value) => {
-              setLeft(value as number);
-            }}
-          ></Slider>
-        </Box>
-      </Drawer>
-      <Drawer
-        open={isOpenFontSize}
-        onClose={() => setIsOpenFontSize(false)}
-        anchor="bottom"
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography>文字サイズ: {fontSize}px</Typography>
-          <Slider
-            min={1}
-            max={256}
-            step={1}
-            value={fontSize}
-            onChange={(_e, value) => {
-              setFontSize(value as number);
-            }}
-          ></Slider>
-        </Box>
-      </Drawer>
-      <Drawer
-        open={isOpenLetterSpace}
-        onClose={() => setIsOpenLetterSpace(false)}
-        anchor="bottom"
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography>文字間: {letterSpace}px</Typography>
-          <Slider
-            min={-64}
-            max={64}
-            step={1}
-            value={letterSpace}
-            onChange={(_e, value) => {
-              setLetterSpace(value as number);
-            }}
-          ></Slider>
-        </Box>
-      </Drawer>
-      <Drawer
-        open={isOpenLineSpace}
-        onClose={() => setIsOpenLineSpace(false)}
-        anchor="bottom"
-      >
-        <Box sx={{ p: 2 }}>
-          <Typography>行間: {lineSpace}px</Typography>
-          <Slider
-            min={-64}
-            max={64}
-            step={1}
-            value={lineSpace}
-            onChange={(_e, value) => {
-              setLineSpace(value as number);
-            }}
-          ></Slider>
-        </Box>
-      </Drawer>
       <Dialog
-        open={isOpenGenerateTemplates}
+        open={openGenerateTemplates}
         onClose={() => {
-          setIsOpenGenerateTemplates(false);
+          setOpenGenerateTemplates(false);
         }}
       >
         <DialogContent>
@@ -1053,7 +1162,7 @@ export default function Generate(): JSX.Element {
                   setWeight(generateTemplate.fontWeight / 10);
                   setMode(generateTemplate.writingMode);
                 });
-                setIsOpenGenerateTemplates(false);
+                setOpenGenerateTemplates(false);
               }}
               onDelete={(deletedId) => {
                 if (generateTemplateId === deletedId) {
@@ -1177,11 +1286,6 @@ export default function Generate(): JSX.Element {
           </Paper>
         </Fade>
       </Draggable>
-
-      <Typography variant="h6">使っている文字</Typography>
-      <Suspense fallback={<CircularProgress />}>
-        <UsingCharacters usingCharactersState={usingCharactersState} />
-      </Suspense>
     </div>
   );
 }

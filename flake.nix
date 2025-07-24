@@ -9,11 +9,12 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
       in
-        with pkgs; {
-          devShell = mkShell {
+        {
+          devShell = pkgs.mkShell {
             packages = [
-              nodejs-16_x
-              watchman
+              pkgs.nodejs-16_x
+              pkgs.watchman
+              pkgs.just
             ];
           };
         }

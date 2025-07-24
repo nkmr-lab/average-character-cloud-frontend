@@ -85,9 +85,9 @@ export default function AverageText({
             width: averageText.width,
           }}
         >
-          {averageText.backgroundImageUrl && (
+          {averageText.backgroundImage && (
             <img
-              src={averageText.backgroundImageUrl}
+              src={averageText.backgroundImage.src}
               style={{
                 position: "absolute",
                 top: 0,
