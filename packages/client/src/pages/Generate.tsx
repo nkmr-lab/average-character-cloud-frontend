@@ -13,7 +13,6 @@ import {
   ListItemButton,
   ListItemText,
   Popover,
-  Drawer,
   ToggleButton,
   ToggleButtonGroup,
   Dialog,
@@ -43,7 +42,6 @@ import {
   useRecoilState_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue_TRANSITION_SUPPORT_UNSTABLE,
   useRecoilValue,
-  constSelector,
   selector,
 } from "recoil";
 import {
@@ -54,11 +52,9 @@ import {
 } from "../store/averageText";
 import {
   graphql,
-  useLazyLoadQuery,
   useMutation,
   useSubscribeToInvalidationState,
 } from "react-relay";
-import { Generate_rootQuery } from "./__generated__/Generate_rootQuery.graphql";
 import ListGenerateTemplates from "../components/ListGenerateTemplates";
 import * as hexColor from "../utils/hexColor";
 import { Generate_createFileMutation } from "./__generated__/Generate_createFileMutation.graphql";
@@ -73,14 +69,10 @@ import * as icons from "@mui/icons-material";
 import { graphQLSelector } from "recoil-relay";
 import RelayEnvironment from "../RelayEnvironment";
 import {
-  Generate_userConfigQuery,
   Generate_userConfigQuery$data,
   Generate_userConfigQuery$variables,
 } from "./__generated__/Generate_userConfigQuery.graphql";
-import {
-  Generate_userConfigMutation,
-  Generate_userConfigMutation$variables,
-} from "./__generated__/Generate_userConfigMutation.graphql";
+import { Generate_userConfigMutation$variables } from "./__generated__/Generate_userConfigMutation.graphql";
 
 const debouncedContentState = atom({
   key: "Generate/debouncedContentState",
@@ -137,19 +129,22 @@ const generateTemplateIdState = atom<string | null>({
   default: null,
 });
 
-export const debouncedSharedProportionState = graphQLSelector({
-  key: "Generate/debouncedSharedProportionState",
+const debouncedUserConfigState = graphQLSelector({
+  key: "Generate/debouncedUserConfigState",
   environment: RelayEnvironment,
   query: graphql`
     query Generate_userConfigQuery {
       userConfig {
         sharedProportion
+        randomLevel
       }
     }
   `,
   variables: (): Generate_userConfigQuery$variables => ({}),
-  mapResponse: (data: Generate_userConfigQuery$data) =>
-    data.userConfig.sharedProportion / 100,
+  mapResponse: (data: Generate_userConfigQuery$data) => ({
+    sharedProportion: data.userConfig.sharedProportion / 100,
+    randomLevel: data.userConfig.randomLevel / 100,
+  }),
   mutations: {
     mutation: graphql`
       mutation Generate_userConfigMutation($input: UpdateUserConfigInput!) {
@@ -161,13 +156,43 @@ export const debouncedSharedProportionState = graphQLSelector({
         }
       }
     `,
-    variables: (
-      sharedProportion: number
-    ): Generate_userConfigMutation$variables => ({
+    variables: (data: {
+      sharedProportion: number;
+      randomLevel: number;
+    }): Generate_userConfigMutation$variables => ({
       input: {
-        sharedProportion: Math.round(sharedProportion * 100),
+        sharedProportion: Math.round(data.sharedProportion * 100),
+        randomLevel: Math.round(data.randomLevel * 100),
       },
     }),
+  },
+});
+
+const debouncedSharedProportionState = selector<number>({
+  key: "Generate/debouncedSharedProportionState",
+  get: ({ get }) => {
+    const { sharedProportion } = get(debouncedUserConfigState);
+    return sharedProportion;
+  },
+  set: ({ set }, newValue) => {
+    set(debouncedUserConfigState, (prev) => ({
+      ...prev,
+      sharedProportion: newValue as number, // TODO: なぜかnewValue: number | DefaultValueと推論されるので
+    }));
+  },
+});
+
+const debouncedRandomLevelState = selector<number>({
+  key: "Generate/debouncedRandomLevelState",
+  get: ({ get }) => {
+    const { randomLevel } = get(debouncedUserConfigState);
+    return randomLevel;
+  },
+  set: ({ set }, newValue) => {
+    set(debouncedUserConfigState, (prev) => ({
+      ...prev,
+      randomLevel: newValue as number, // TODO: なぜかnewValue: number | DefaultValueと推論されるので
+    }));
   },
 });
 
@@ -231,19 +256,6 @@ const modeState = atom<"horizontal" | "vertical">({
 });
 
 export default function Generate(): JSX.Element {
-  const { userConfig } = useLazyLoadQuery<Generate_rootQuery>(
-    graphql`
-      query Generate_rootQuery {
-        userConfig {
-          randomLevel
-          sharedProportion
-        }
-      }
-    `,
-    {},
-    { fetchPolicy: "store-and-network" }
-  );
-
   const [createFile, _createFileLoading] =
     useMutation<Generate_createFileMutation>(
       graphql`
@@ -313,8 +325,6 @@ export default function Generate(): JSX.Element {
         }
       `
     );
-
-  const randomLevelState = constSelector(userConfig.randomLevel / 100);
 
   const [isPending, startTransition] = React.useTransition();
   const [debouncedContent, setDebouncedContent] =
@@ -497,6 +507,19 @@ export default function Generate(): JSX.Element {
     [sharedProportion]
   );
 
+  const [debouncedRandomLevel, setDebouncedRandomLevel] =
+    useRecoilState_TRANSITION_SUPPORT_UNSTABLE(debouncedRandomLevelState);
+  const [randomLevel, setRandomLevel] = React.useState(debouncedRandomLevel);
+  const [isReadyRandomLevel] = useDebounce(
+    () => {
+      startTransition(() => {
+        setDebouncedRandomLevel(randomLevel);
+      });
+    },
+    500,
+    [randomLevel]
+  );
+
   const [backgroundImageUrl, setBackgroundImageUrl] =
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(backgroundImageUrlState);
 
@@ -514,7 +537,8 @@ export default function Generate(): JSX.Element {
     isReadyLineSpace() &&
     isReadyLetterSpace() &&
     isReadyWeight() &&
-    isReadySharedProportion();
+    isReadySharedProportion() &&
+    isReadyRandomLevel();
   const [_seeds, setSeeds] =
     // setだけ返ってくるtransiton対応のhookがない
     useRecoilState_TRANSITION_SUPPORT_UNSTABLE(seedsState);
@@ -525,7 +549,7 @@ export default function Generate(): JSX.Element {
 
   const averageTextState = averageTextStateFamily({
     contentState: debouncedContentState,
-    randomLevelState,
+    randomLevelState: debouncedRandomLevelState,
     seedsState: seedsState,
     sharedProportionState: debouncedSharedProportionState,
     enableUseSharedFigureRecordsState,
@@ -872,6 +896,30 @@ export default function Generate(): JSX.Element {
               value={sharedProportion}
               onChange={(_e, value) => {
                 setSharedProportion(value as number);
+              }}
+            ></Slider>
+          </Grid>
+          <Grid item xs={2}>
+            <Typography>
+              ゆらぎ: {(randomLevel * 100).toFixed(0)}%
+              <Tooltip title="小さいほど綺麗な字に、大きいほど個性的な字になります。">
+                <icons.HelpOutline
+                  style={{
+                    fontSize: 18,
+                    verticalAlign: "middle",
+                    marginLeft: 4,
+                  }}
+                />
+              </Tooltip>
+            </Typography>
+
+            <Slider
+              min={0}
+              max={1.0}
+              step={0.01}
+              value={randomLevel}
+              onChange={(_e, value) => {
+                setRandomLevel(value as number);
               }}
             ></Slider>
           </Grid>
