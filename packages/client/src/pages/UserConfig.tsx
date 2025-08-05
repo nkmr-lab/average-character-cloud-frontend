@@ -42,8 +42,6 @@ export default function UserConfig(): JSX.Element {
       fragment UserConfig_userConfig on UserConfig {
         allowSharingCharacterConfigs
         allowSharingFigureRecords
-        randomLevel
-        sharedProportion
       }
     `,
     userConfigKey
@@ -72,8 +70,6 @@ export default function UserConfig(): JSX.Element {
   const { register, handleSubmit, control } = useForm<{
     allowSharingCharacterConfigs: boolean;
     allowSharingFigureRecords: boolean;
-    randomLevel: number;
-    sharedProportion: number;
   }>({
     mode: "onChange",
   });
@@ -88,19 +84,12 @@ export default function UserConfig(): JSX.Element {
         component="form"
         onSubmit={ignoreResult(
           handleSubmit(
-            ({
-              allowSharingCharacterConfigs,
-              allowSharingFigureRecords,
-              sharedProportion,
-              randomLevel,
-            }) => {
+            ({ allowSharingCharacterConfigs, allowSharingFigureRecords }) => {
               updateUserConfig({
                 variables: {
                   input: {
                     allowSharingCharacterConfigs,
                     allowSharingFigureRecords,
-                    sharedProportion,
-                    randomLevel,
                   },
                 },
                 onCompleted: ({ updateUserConfig }) => {
@@ -158,49 +147,6 @@ export default function UserConfig(): JSX.Element {
           <FormHelperText>
             チェックすると書いた文字の形が他のユーザと共有されます。
           </FormHelperText>
-        </FormGroup>
-        <FormGroup>
-          <Typography variant="subtitle1">文章生成設定</Typography>
-          <FormHelperText>
-            文章画像生成に関するパラメーターを調整します。デフォルト値は全て50%となっており、基本的にはそのままで問題ありません。
-          </FormHelperText>
-          <Typography variant="subtitle2">ゆらぎ</Typography>
-          <FormHelperText>
-            小さいほど綺麗な字に、大きいほど個性的な字になります。
-          </FormHelperText>
-          <Controller
-            name="randomLevel"
-            control={control}
-            defaultValue={userConfig.randomLevel}
-            render={({ field }) => (
-              <Slider
-                {...field}
-                max={100}
-                step={1}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(value) => `${value}%`}
-              />
-            )}
-          />
-
-          <Typography variant="subtitle2">他人の字の割合</Typography>
-          <FormHelperText>
-            他人が書いた字をどのくらいの割合で混ぜるかを指定できます。大きいほど自分の字らしさが減りますが、字の形状のバリエーションが増えます。
-          </FormHelperText>
-          <Controller
-            name="sharedProportion"
-            control={control}
-            defaultValue={userConfig.sharedProportion}
-            render={({ field }) => (
-              <Slider
-                {...field}
-                max={100}
-                step={1}
-                valueLabelDisplay="auto"
-                valueLabelFormat={(value) => `${value}%`}
-              />
-            )}
-          />
         </FormGroup>
         <Button
           type="submit"

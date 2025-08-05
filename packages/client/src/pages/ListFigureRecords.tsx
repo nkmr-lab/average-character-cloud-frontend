@@ -105,7 +105,9 @@ export default function ListFigureRecords(): JSX.Element {
   useSubscribeToInvalidationState(
     characters.map(({ id }) => id),
     () => {
-      setFetchKey((prev) => prev + 1);
+      startTransition(() => {
+        setFetchKey((prev) => prev + 1);
+      });
     }
   );
 
